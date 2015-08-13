@@ -2,7 +2,7 @@
 output:
   knitrBootstrap::bootstrap_document:
     title: "Follow-up analysis on effect sizes"
-    theme: Readable
+    theme: default
 ---
 
 More on divergence effect sizes
