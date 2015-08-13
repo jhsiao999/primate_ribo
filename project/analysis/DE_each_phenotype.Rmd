@@ -1,0 +1,88 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Differential expression analysis separatley for each molecular phenotype"
+    theme: default
+---
+
+
+Differential expression analysis 
+=================================
+
+```{r run_date, results='asis', echo=FALSE}
+email = "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+cat(paste("Author:", email, "\n Last updated:", last_update))
+```
+
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+library(Biobase)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(fig.width = 800/96, fig.height = 800/96, dpi = 96,
+              message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
+              bootstrap.panel = FALSE, bootstrap.show.code = FALSE)
+```
+
+
+```{r setUp}
+library(devtools)
+install_github("jhsiao999/primate_ribo/Humanzee")
+
+library(Biobase)
+rm(list=ls())
+dir <- "../../project"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+
+# source(file.path( codedir, "prepareDivergencePlots.R"))
+```
+
+
+Definitions/Terminologies
+=========================
+
+*Divergence* is a term used in evolutionary studies referring to inter-species difference. We studied inter-primate divergence at the transcript level, translation level, and protein level.
+
+
+Method
+======
+A nested linear model framework. Same approach as in Zia's paper. 
+
+
+
+All 3,188 genes
+===============
+
+```{r, eval = F}
+load(file.path(rdadir,"eSetRRP.rda"))
+source(file.path(codedir,"DEtesting.r"))
+eSetRRP.log2 = ExpressionSet(assayData = log2(exprs(eSetRRP[,eSetRRP$seqData!="protein"])),
+                       phenoData=phenoData(eSetRRP[,eSetRRP$seqData!="protein"]),
+                       experimentData=experimentData(eSetRRP[,eSetRRP$seqData!="protein"]))
+featureData(eSetRRP.log2) = featureData(eSetRRP)                  
+
+eSetRRP.Q.log2 = ExpressionSet(assayData = log2(exprs(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"])),
+                       phenoData=phenoData(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"]),
+                       experimentData=experimentData(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"]))
+featureData(eSetRRP.Q.log2) = featureData(eSetRRP)                  
+
+riboRes = testDE(eSetRRP.log2,seqData="ribo",species=c("human","chimp"))$res
+riboRes.Q = testDE(eSetRRP.Q.log2,seqData="ribo",species=c("human","chimp"))$res
+
+rnaRes = testDE(eSetRRP.log2,seqData="rna",species=c("human","chimp"))$res
+rnaRes.Q = testDE(eSetRRP.Q.log2,seqData="rna",species=c("human","chimp"))$res
+
+massRes = testDE(eSetRRP,seqData="protein",species=c("human","chimp"))$res
+massRes.Q = testDE(eSetRRP.Q,seqData="protein",species=c("human","chimp"))$res
+
+save(riboRes,riboRes.Q,rnaRes,rnaRes.Q,massRes,massRes.Q,
+     eSetRRP.Q.log2,eSetRRP.log2,
+     file=file.path(rdadir,"DE.rda"))
+```
+
+
+
+
