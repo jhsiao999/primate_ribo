@@ -53,9 +53,11 @@ Method
 A nested linear model framework. Same approach as in Zia's paper. 
 
 
+Measurements
+============
+3,188 genes quantified in all three phenotypes.
 
-All 3,188 genes
-===============
+
 
 ```{r, eval = F}
 load(file.path(rdadir,"eSetRRP.rda"))
@@ -86,4 +88,716 @@ save(riboRes,riboRes.Q,rnaRes,rnaRes.Q,massRes,massRes.Q,
 
 
 
+Translation divergence
+======================
 
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"DE.rda"))
+par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
+seqData="ribo"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.log2$seqData==seqData & eSetRRP.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-4,4),ylim=c(-8,8),main="")
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+
+
+
+xx=(mat[[1]]-mat[[2]])[!is.na(riboRes$qval)]
+yy=-log10(riboRes$qval[!is.na(riboRes$qval)])
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,9),
+              xlim=c(-8,8),xlab="log(H/C)",ylab="-log10(q-value)")
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(4,2.2,label=paste(sum(riboRes$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+
+title("log2 Standardized RPKM",outer=T,line=-1)
+```
+
+
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"DE.rda"))
+par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
+seqData="ribo"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.log2$seqData==seqData & eSetRRP.Q.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+       
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-4,4),ylim=c(-8,8),main="")
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+
+
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(riboRes.Q$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,9),
+              xlim=c(-8,8),xlab="log(H/C)",ylab="-log10(q-value)")
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(4,2.2,label=paste(sum(riboRes.Q$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+
+title("log2 Standardized RPKM, Quantile normalized",outer=T,line=-1)
+```
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+load(file.path(rdadir,"DE.rda"))
+# source(file.path(codedir,"multipleVenns.r"))
+# mat=data.frame(RPKM=riboRes$qval,RPKM.Qnorm=riboRes.Q$qval)
+# bmat = mat <.01
+# pairwise.venn(bmat,main="",fillcols=c("royalblue","paleturquoise"),
+#               cat.pos=c(90,270),cex=1,cat.cex=1,cat.dist=c(.1,.1))
+# require(gplots)
+# venn(list(RPKM = riboRes$ENSGID[riboRes$qval<.01],
+#           RPKM.Qnorm = riboRes.Q$ENSGID[riboRes.Q$qval<.01]))
+mat=data.frame(RPKM=riboRes$qval<.01,RPKM.Qnorm=riboRes.Q$qval<.01)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+
+
+
+Transcript divergence
+======================
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"DE.rda"))
+par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
+seqData="rna"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.log2$seqData==seqData & eSetRRP.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-3.5,3.5),ylim=c(-7,7),main="")
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(rnaRes$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,9),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)")
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(4,2.2,label=paste(sum(rnaRes$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+
+title("log2 Standardized RPKM",outer=T,line=-1)
+```
+
+
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"DE.rda"))
+par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
+seqData="rna"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.log2$seqData==seqData & eSetRRP.Q.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-3.5,3.5),ylim=c(-7,7),main="")
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+
+
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(rnaRes.Q$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,9),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)")
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(4,2.2,label=paste(sum(rnaRes.Q$qval<.01),"genes < .01"),adj=c(0,0),cex=.8)
+
+title("log2 Standardized RPKM, Quantile normalized",outer=T,line=-1)
+```
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+load(file.path(rdadir,"DE.rda"))
+# source(file.path(codedir,"multipleVenns.r"))
+# mat=data.frame(RPKM=rnaRes$qval,RPKM.Qnorm=rnaRes.Q$qval)
+# bmat = mat <.01
+# pairwise.venn(bmat,main="",fillcols=c("red4","red"),
+#               cat.pos=c(270,90),cex=1,cat.cex=1,cat.dist=c(.1,.1))
+# require(gplots)
+# venn(list(RPKM = rnaRes$ENSGID[rnaRes$qval<.01],
+#           RPKM.Qnorm = rnaRes.Q$ENSGID[rnaRes.Q$qval<.01]))
+mat=data.frame(RPKM=rnaRes$qval<.01,RPKM.Qnorm=rnaRes.Q$qval<.01)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+
+
+Protein divergence
+==================
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"DE.rda"))
+par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
+seqData="protein"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP$seqData==seqData & eSetRRP$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+
+require(matrixStats)
+xy=xy[rowSums(is.na(xy))==0,]
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-6,6),ylim=c(-5,5),main="")
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(massRes$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-5,5),xlab="log(H/C)",ylab="-log10(q-value)")
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(massRes$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+
+title("Standardized RPKM",outer=T,line=-1)
+```
+
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"DE.rda"))
+par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
+seqData="protein"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q$seqData==seqData & eSetRRP.Q$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+
+require(matrixStats)
+xy=xy[rowSums(is.na(xy))==0,]
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-6,6),ylim=c(-5,5),main="")
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(massRes.Q$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-5,5),xlab="log(H/C)",ylab="-log10(q-value)")
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(massRes.Q$qval<.01,na.rm=T),"genes < .01"),
+     adj=c(0,0),cex=.8)
+
+title("Standardized RPKM, Quantile normalized",outer=T,line=-1)
+```
+
+
+
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+load(file.path(rdadir,"DE.rda"))
+# source(file.path(codedir,"multipleVenns.r"))
+# mat=data.frame(RPKM=massRes$qval,RPKM.Qnorm=massRes.Q$qval)
+# bmat = mat <.01
+# pairwise.venn(bmat,main="",fillcols=c("purple4","magenta"),
+#               cat.pos=c(270,90),cex=1,cat.cex=1,cat.dist=c(.1,.1))
+# require(gplots)
+# venn(list(RPKM = massRes$ENSGID[massRes$qval<.01],
+#           RPKM.Qnorm = massRes.Q$ENSGID[massRes.Q$qval<.01]))
+mat=data.frame(RPKM=massRes$qval<.01,RPKM.Qnorm=massRes.Q$qval<.01)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+
+Compare data type-specific versus data type-wide normalization
+==========================================================================
+
+```{r ,eval=F,echo=F}
+load(file.path(rdadir,"eSetRRP.rda"))
+
+# # unstandardized RPKM values
+# rna.mat = exprs(eSetRRP.RP[,eSetRRP.RP$seqData=="rna"])
+# ribo.mat = exprs(eSetRRP.RP[,eSetRRP.RP$seqData=="ribo"])
+# pro.mat = 2^exprs(eSetRRP.RP[,eSetRRP.RP$seqData=="protein"])
+# 
+# # quantile normalization across data types
+# source(file.path(codedir,"normalizationMethods.R"))
+# mat.all = cbind(rna.mat,ribo.mat,pro.mat)
+# qmat.all <- normalize(mat.all,geneLen=NULL,
+#                      method="quantile",log="FALSE")
+# qmat.all = log2(qmat.all)
+# 
+# eSetRRP.RP.Q.all = ExpressionSet(assayData = qmat.all,
+#                  phenoData=phenoData(eSetRRP.RP),
+#                  experimentData=experimentData(eSetRRP.RP))
+# featureData(eSetRRP.RP.Q.all) = featureData(eSetRRP.RP)                  
+# 
+# source(file.path(codedir,"DEtesting.r"))
+# riboRes.RP.Q.all = testDE(eSetRRP.RP.Q.all,seqData="ribo",species=c("human","chimp"))$res
+# rnaRes.RP.Q.all = testDE(eSetRRP.RP.Q.all,seqData="rna",species=c("human","chimp"))$res
+# massRes.RP.Q.all = testDE(eSetRRP.RP.Q.all,seqData="protein",species=c("human","chimp"))$res
+
+
+
+# relative RPKM values
+
+rna.mat = exprs(eSetRRP[,eSetRRP$seqData=="rna"])
+ribo.mat = exprs(eSetRRP[,eSetRRP$seqData=="ribo"])
+pro.mat = 2^exprs(eSetRRP[,eSetRRP$seqData=="protein"])
+
+# quantile normalization across data types
+source(file.path(codedir,"normalizationMethods.R"))
+mat.all = cbind(rna.mat,ribo.mat,pro.mat)
+qmat.all <- normalize(mat.all,geneLen=NULL,
+                     method="quantile",log="FALSE")
+qmat.all = log2(qmat.all)
+
+eSetRRP.Q.all = ExpressionSet(assayData = qmat.all,
+                 phenoData=phenoData(eSetRRP),
+                 experimentData=experimentData(eSetRRP))
+featureData(eSetRRP.Q.all) = featureData(eSetRRP)                  
+
+source(file.path(codedir,"DEtesting.r"))
+riboRes.Q.all = testDE(eSetRRP.Q.all,seqData="ribo",species=c("human","chimp"))$res
+rnaRes.Q.all = testDE(eSetRRP.Q.all,seqData="rna",species=c("human","chimp"))$res
+massRes.Q.all = testDE(eSetRRP.Q.all,seqData="protein",species=c("human","chimp"))$res
+
+save(eSetRRP.Q.all,riboRes.Q.all,rnaRes.Q.all,massRes.Q.all,
+     file=file.path(rdadir,"eSetRRP.Q.all.rda"))
+```
+
+
+MA plots of DE results
+---------------------
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"eSetRRP.Q.all.rda"))
+load(file.path(rdadir,"DE.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+
+# Ribo-seq
+par(mfcol=c(1,2),mar=c(4,4,4,1),cex.lab=.7,cex.main=.9)
+seqData="ribo"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.log2$seqData==seqData & eSetRRP.Q.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat)=c("human","chimp")
+
+seqData="ribo"
+mat.oo=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.all$seqData==seqData & eSetRRP.Q.all$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.all)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat.oo)=c("human","chimp")
+
+
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+     xlim=c(-4,4),ylim=c(-6,6),main="",axes=F)
+axis(1);axis(2)
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+title(main="Relative RPKM, quantile normalized",line=-0.5)
+
+xx=(mat.oo[[1]]+mat.oo[[2]])/2
+yy=mat.oo[[1]]-mat.oo[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+     xlim=c(-4,4),ylim=c(-6,6),main="",axes=F)
+axis(1);axis(2)
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+title(main="Relative RPKM, quantile normalized across data types",line=-0.5)
+title("Ribo-seq",outer=TRUE,line=-1)
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"eSetRRP.Q.all.rda"))
+load(file.path(rdadir,"DE.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+# RNA-seq
+par(mfcol=c(1,2),mar=c(4,4,4,1),cex.lab=.7,cex.main=.9)
+seqData="rna"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.log2$seqData==seqData & eSetRRP.Q.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat)=c("human","chimp")
+
+seqData="rna"
+mat.oo=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.all$seqData==seqData & eSetRRP.Q.all$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.all)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat.oo)=c("human","chimp")
+
+
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+     xlim=c(-4,4),ylim=c(-6,6),main="",axes=F)
+axis(1);axis(2)
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+title(main="Relative RPKM, quantile normalized",line=-0.5)
+
+xx=(mat.oo[[1]]+mat.oo[[2]])/2
+yy=mat.oo[[1]]-mat.oo[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+     xlim=c(-4,4),ylim=c(-6,6),main="",axes=F)
+axis(1);axis(2)
+abline(h=0)
+rug(mat.oo[[1]]-mat.oo[[2]],side=2,col="blue")
+title(main="Relative RPKM, quantile normalized across data types",line=-0.5)
+title("RNA-seq",outer=TRUE,line=-1)
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"eSetRRP.Q.all.rda"))
+load(file.path(rdadir,"DE.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+# Protein
+par(mfcol=c(1,2),mar=c(4,4,4,1),cex.lab=.7,cex.main=.9)
+seqData="protein"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q$seqData==seqData & eSetRRP.Q$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat)=c("human","chimp")
+
+seqData="protein"
+mat.oo=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.all$seqData==seqData & eSetRRP.Q.all$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.all)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat.oo)=c("human","chimp")
+
+
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+     xlim=c(-4,4),ylim=c(-6,6),main="",axes=F)
+axis(1);axis(2)
+abline(h=0)
+rug(mat[[1]]-mat[[2]],side=2,col="blue")
+title(main="Relative expression levels, quantile normalized",line=-0.5)
+
+xx=(mat.oo[[1]]+mat.oo[[2]])/2
+yy=mat.oo[[1]]-mat.oo[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+     xlim=c(-4,4),ylim=c(-6,6),main="",axes=F)
+axis(1);axis(2)
+abline(h=0)
+rug(mat.oo[[1]]-mat.oo[[2]],side=2,col="blue")
+title(main="Relative expression levels, quantile normalized across data types",line=-0.5)
+title("Protein expression levels",outer=TRUE,line=-1)
+```
+
+
+Volcano plots of DE results
+---------------------------
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"eSetRRP.Q.all.rda"))
+load(file.path(rdadir,"DE.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+
+par(mfcol=c(1,2),mar=c(4,4,4,1),cex.lab=.7,cex.main=.9)
+seqData="ribo"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.log2$seqData==seqData & eSetRRP.Q.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat)=c("human","chimp")
+
+seqData="ribo"
+mat.oo=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.all$seqData==seqData & eSetRRP.Q.all$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.all)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat.oo)=c("human","chimp")
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(riboRes.Q$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)",axes=F)
+axis(1);axis(2)
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(riboRes.Q$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+title("Relative RPKM, quantile normalized",line=-0.5)
+
+
+xx=(mat.oo[[1]]-mat.oo[[2]])
+yy=-log10(riboRes.Q.all$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)",axes=F)
+axis(1);axis(2)
+rug(mat.oo[[1]]-mat.oo[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(riboRes.Q.all$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+title("Relative RPKM, quantile normalized across data types",line=-0.5)
+title("Ribo-seq",outer=TRUE,line=-1)
+```
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"eSetRRP.Q.all.rda"))
+load(file.path(rdadir,"DE.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+
+par(mfcol=c(1,2),mar=c(4,4,4,1),cex.lab=.7,cex.main=.9)
+seqData="rna"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.log2$seqData==seqData & eSetRRP.Q.log2$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.log2)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat)=c("human","chimp")
+
+seqData="rna"
+mat.oo=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.all$seqData==seqData & eSetRRP.Q.all$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.all)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat.oo)=c("human","chimp")
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(rnaRes.Q$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)",axes=F)
+axis(1);axis(2)
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(rnaRes.Q$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+title("Relative RPKM, quantile normalized",line=-0.5)
+
+
+xx=(mat.oo[[1]]-mat.oo[[2]])
+yy=-log10(rnaRes.Q.all$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)",axes=F)
+axis(1);axis(2)
+rug(mat.oo[[1]]-mat.oo[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(rnaRes.Q.all$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+title("Relative RPKM, quantile normalized across data types",line=-0.5)
+title("RNA-seq",outer=TRUE,line=-1)
+```
+
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+load(file.path(rdadir,"eSetRRP.Q.all.rda"))
+load(file.path(rdadir,"DE.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+
+par(mfcol=c(1,2),mar=c(4,4,4,1),cex.lab=.7,cex.main=.9)
+seqData="protein"
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q$seqData==seqData & eSetRRP.Q$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat)=c("human","chimp")
+
+seqData="protein"
+mat.oo=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSetRRP.Q.all$seqData==seqData & eSetRRP.Q.all$species==c("human","chimp")[i]
+  emat = exprs(eSetRRP.Q.all)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+})
+names(mat.oo)=c("human","chimp")
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(massRes.Q$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)",axes=F)
+axis(1);axis(2)
+rug(mat[[1]]-mat[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(massRes.Q$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+title("Relative RPKM, quantile normalized",line=-0.5)
+
+
+xx=(mat.oo[[1]]-mat.oo[[2]])
+yy=-log10(massRes.Q.all$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+plot(xy,col=dcols,pch=20,ylim=c(0,8),
+              xlim=c(-7,7),xlab="log(H/C)",ylab="-log10(q-value)",axes=F)
+axis(1);axis(2)
+rug(mat.oo[[1]]-mat.oo[[2]],side=1,col="blue")
+abline(v=0,lty=2)
+abline(h=2,lty=1,col="red")
+text(1.5,2.2,label=paste(sum(massRes.Q.all$qval<.01,na.rm=T),"genes < .01"),adj=c(0,0),cex=.8)
+title("Relative RPKM, quantile normalized across data types",line=-0.5)
+title("Protein expression levels",outer=TRUE,line=-1)
+```

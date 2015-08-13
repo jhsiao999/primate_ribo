@@ -14,4 +14,8 @@ tagline: A comparative study of translation divergence
 
 ### Analysis
 
-- [Differential expression analysis](project/analysis/differential_expression.html)
+#### Differential expression analysis
+
+- [For each phenotype independently](project/analysis/DE_each_phenotype.html)
+- [For genes quantified in all 3 phenotypes](project/analysis/DE_all/phenotypes.html)
+

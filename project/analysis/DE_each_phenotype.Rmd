@@ -53,34 +53,11 @@ A nested linear model framework. Same approach as in Zia's paper.
 
 
 
-All 3,188 genes
-===============
+Ribosome occupancy
+==================
 
 ```{r, eval = F}
-load(file.path(rdadir,"eSetRRP.rda"))
-source(file.path(codedir,"DEtesting.r"))
-eSetRRP.log2 = ExpressionSet(assayData = log2(exprs(eSetRRP[,eSetRRP$seqData!="protein"])),
-                       phenoData=phenoData(eSetRRP[,eSetRRP$seqData!="protein"]),
-                       experimentData=experimentData(eSetRRP[,eSetRRP$seqData!="protein"]))
-featureData(eSetRRP.log2) = featureData(eSetRRP)                  
 
-eSetRRP.Q.log2 = ExpressionSet(assayData = log2(exprs(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"])),
-                       phenoData=phenoData(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"]),
-                       experimentData=experimentData(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"]))
-featureData(eSetRRP.Q.log2) = featureData(eSetRRP)                  
-
-riboRes = testDE(eSetRRP.log2,seqData="ribo",species=c("human","chimp"))$res
-riboRes.Q = testDE(eSetRRP.Q.log2,seqData="ribo",species=c("human","chimp"))$res
-
-rnaRes = testDE(eSetRRP.log2,seqData="rna",species=c("human","chimp"))$res
-rnaRes.Q = testDE(eSetRRP.Q.log2,seqData="rna",species=c("human","chimp"))$res
-
-massRes = testDE(eSetRRP,seqData="protein",species=c("human","chimp"))$res
-massRes.Q = testDE(eSetRRP.Q,seqData="protein",species=c("human","chimp"))$res
-
-save(riboRes,riboRes.Q,rnaRes,rnaRes.Q,massRes,massRes.Q,
-     eSetRRP.Q.log2,eSetRRP.log2,
-     file=file.path(rdadir,"DE.rda"))
 ```
 
 
