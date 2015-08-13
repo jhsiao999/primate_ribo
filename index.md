@@ -4,15 +4,14 @@ title: "primate_ribo"
 tagline: A comparative study of translation divergence
 ---
 
-**Last updated:** `r Sys.Date()`
 
 
-## Preprocessing
+### Preprocessing
 
-- [Normalization]
-- [Filtering]
+- [Normalization]()
+- [Filtering]()
 
 
-## Analysis
+### Analysis
 
 - [Differential expression analysis](project/analysis/differential_expression.html)
