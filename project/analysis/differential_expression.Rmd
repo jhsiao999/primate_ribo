@@ -1,0 +1,45 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Divergence analysis"
+    theme: default
+---
+
+
+Divergence analysis
+=========================
+
+```{r run_date, results='asis', echo=FALSE}
+email = "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+cat(paste("Author:", email))
+cat(paste("Last updated:", last_update))
+```
+
+Find the codes [here](divergence.Rmd)
+
+
+```{r knitr_settings, include=FALSE}
+library(knitr)
+opts_knit$set(progress=TRUE, verbose=TRUE)
+opts_chunk$set(fig.width=800/96, fig.height=800/96, dpi=96,
+               message = FALSE, warning = FALSE, eval=TRUE, echo=FALSE,
+               collapse = TRUE, tidy = FALSE, strip.white = TRUE)
+```
+
+
+```{r setUp}
+library(devtools)
+install_github("jhsiao999/primate_ribo/Humanzee")
+
+library(Biobase)
+# rm(list=ls())
+# dir="~/Dropbox/riboRNAShared"
+# figdir = file.path(dir,"figs")
+# rdadir = file.path(dir,"rdas")
+# codedir = file.path(dir,"codes")
+
+# source(file.path( codedir, "prepareDivergencePlots.R"))
+# get plotting default parameters
+# op = par()
+```
