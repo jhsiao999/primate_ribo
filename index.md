@@ -1,9 +1,18 @@
 ---
 layout: page
-title: Primate ribosome profiling
+title: "primate_ribo"
+tagline: A comparative study of translation divergence
 ---
 
+**Last updated:** `r Sys.Date()`
 
 
-[Analysis](project/analysis/effect_size_20150810.html)
-[Differential expression analysis](project/analysis/differential_expression.html)
+## Preprocessing
+
+- [Normalization]
+- [Filtering]
+
+
+## Analysis
+
+- [Differential expression analysis](project/analysis/differential_expression.html)
