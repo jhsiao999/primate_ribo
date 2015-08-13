@@ -20,7 +20,8 @@ library(knitr)
 library(Biobase)
 opts_knit$set(progress = TRUE, verbose = TRUE)
 opts_chunk$set(fig.width = 800/96, fig.height = 800/96, dpi = 96,
-              message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
+              message = FALSE, warning = FALSE, eval = FALSE, 
+              echo = TRUE,
               bootstrap.panel = FALSE, bootstrap.show.code = FALSE)
 #opts_chunk$set(dpi=96, message = FALSE, warning = FALSE, eval = TRUE, echo = FALSE )
 ```
