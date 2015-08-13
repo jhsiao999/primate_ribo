@@ -5,4 +5,4 @@ title: Primate ribosome profiling
 
 
 
-[Analysis](analysis/overview.html)
+[Analysis](analysis/effect_size_20150810.html)
