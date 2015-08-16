@@ -1,7 +1,7 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "Divergence analysis"
+    title: "Differential expression analysis"
     theme: default
 ---
 
@@ -9,41 +9,54 @@ output:
 Differential expression analysis
 ================================
 
-```{r run_date, results='asis', echo=FALSE}
-email = "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
-last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
-cat(paste("Author:", email, "\n Last updated:", last_update))
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
 ```
 
-Find the codes [here](divergence.Rmd)
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
 
 
 ```{r knitr_settings, include=FALSE, echo=FALSE}
 library(knitr)
-library(Biobase)
 opts_knit$set(progress = TRUE, verbose = TRUE)
-opts_chunk$set(fig.width = 800/96, fig.height = 800/96, dpi = 96,
-              message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
               bootstrap.panel = FALSE, bootstrap.show.code = FALSE)
 ```
 
 
-```{r setUp}
-library(devtools)
-install_github("jhsiao999/primate_ribo/Humanzee")
+Goal
+=====
 
+
+```{r load_packages}
 library(Biobase)
-rm(list=ls())
-dir <- "../../project"
+
+## Set working directories 
+dir <- "../"
 figdir <- file.path(dir,"figures")
 rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
 
-# source(file.path( codedir, "prepareDivergencePlots.R"))
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
 ```
 
 
 Definitions/Terminologies
 =========================
+
 
 *Divergence* is a term used in evolutionary studies referring to inter-species difference. We studied inter-primate divergence at the transcript level, translation level, and protein level.
 
@@ -57,6 +70,8 @@ Measurements
 ============
 3,188 genes quantified in all three phenotypes.
 
+
+## Human vs. Chimpanzee
 
 
 ```{r, eval = F}
@@ -88,10 +103,41 @@ save(riboRes,riboRes.Q,rnaRes,rnaRes.Q,massRes,massRes.Q,
 
 
 
+## Rhesus vs. Human or Chimpanzee
+
+```{r, eval = F}
+load(file.path(rdadir,"eSetRRP.rda"))
+
+require(Humanzee)
+## Take log2 transformation of sequencing data measurements 
+eSetRRP.log2 <- ExpressionSet(assayData = log2(exprs(eSetRRP[,eSetRRP$seqData!="protein"])),
+                       phenoData=phenoData(eSetRRP[,eSetRRP$seqData!="protein"]),
+                       experimentData=experimentData(eSetRRP[,eSetRRP$seqData!="protein"]))
+featureData(eSetRRP.log2) <- featureData(eSetRRP)                  
+
+## Rhesus vs. Chimpanzee differential expression analysis
+riboRes_rhesus_chimp <- testDE(eSetRRP.log2,seqData="ribo",species=c("chimp","rhesus"))$res
+rnaRes_rhesus_chimp <- testDE(eSetRRP.log2,seqData="rna",species=c("chimp","rhesus"))$res
+massRes_rhesus_chimp <- testDE(eSetRRP,seqData="protein",species=c("chimp","rhesus"))$res
+
+## Rhesus vs. Human differential expression analysis
+riboRes_rhesus_human <- testDE(eSetRRP.log2,seqData="ribo",species=c("human","rhesus"))$res
+rnaRes_rhesus_human <- testDE(eSetRRP.log2,seqData="rna",species=c("human","rhesus"))$res
+massRes_rhesus_human <- testDE(eSetRRP,seqData="protein",species=c("human","rhesus"))$res
+
+save(riboRes_rhesus_chimp, rnaRes_rhesus_chimp, massRes_rhesus_chimp,
+     riboRes_rhesus_human, rnaRes_rhesus_chimp, massRes_rhesus_chimp,
+     file = file.path(rdadir, "DE_chimp_rhesus.rda"))
+```
+
+
+
+
+
 Translation divergence
 ======================
 
-```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=10}
+```{r, fig.height=4,fig.width=10}
 load(file.path(rdadir,"DE.rda"))
 par(mfcol=c(1,2),mar=c(4,4,2,1),cex.lab=.9)
 seqData="ribo"

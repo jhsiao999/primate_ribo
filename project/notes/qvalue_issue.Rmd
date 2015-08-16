@@ -1,0 +1,44 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+Potential bug in the computation of qvalues
+
+I updated the qvalue package to the most up-to-date version on Bioconductor. 
+
+Then, I reran this function on the results of interaction models testing for
+translation efficiency. I was unable to reproduce the q-values. The new q-values
+are a lot less stringent for this set of analysis. Of the 3,188 genes, the 
+number of genes with sig. translation efficiency differences between species
+increased from 486 to 1187. 
+
+checks
+I was able to reproduce the p-values. 
+I was able to generate the same q-values directly using the qvalue package
+as when using my own q-value wrapper. 
+
+I check on other results in the study. Such as differential expresison analysis
+of ribosome profiling data. Again, I was unable to reproduce the results, 
+although the difference in smaller in this case, from 1700 to 1619 genes. 
+
+Could it be the version issue?? 
+
+YES!!! 
+
+
+TBD...
+
+remove.packages("qvalue")
+install.packages("/Users/joycehsiao/Downloads/qvalue_1.38.0.tar.gz", 
+    repos = NULL, type="source")
+require(qvalue)
+
+
+Spent two hours going crazy over this!!! Ugh!!
+Just learned something about the qvalue package in R. The old version and the new version produce different results!!
+But need to figure out if the conclusions differ much between versions....
+Maybe use something else. This sucks!!
+
+
+

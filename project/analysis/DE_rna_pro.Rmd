@@ -1,0 +1,81 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Differential expression analysis separatley for each molecular phenotype"
+    theme: default
+---
+
+
+Differential expression analysis 
+=================================
+
+```{r run_date, results='asis', echo=FALSE}
+email = "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+cat(paste("Author:", email, "\n Last updated:", last_update))
+```
+
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+library(Biobase)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(fig.width = 800/96, fig.height = 800/96, dpi = 96,
+              message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
+              bootstrap.panel = FALSE, bootstrap.show.code = FALSE)
+```
+
+
+```{r setUp}
+library(devtools)
+install_github("jhsiao999/primate_ribo/Humanzee")
+require(Humanzee)
+
+
+library(Biobase)
+rm(list=ls())
+dir <- "../../project"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+
+# source(file.path( codedir, "prepareDivergencePlots.R"))
+```
+
+
+Definitions/Terminologies
+=========================
+
+*Divergence* is a term used in evolutionary studies referring to inter-species difference. We studied inter-primate divergence at the transcript level, translation level, and protein level.
+
+
+Method
+======
+A nested linear model framework. Same approach as in Zia's paper. 
+
+
+
+Ribosome occupancy
+==================
+
+```{r, eval = F}
+
+## Load differential expression results and else
+load(file.path(rdadir, "eSetRiboProfile.rda"))
+
+# Human vs. Chimpanzee
+sum(ribo.Res.hc$qval < .01)
+
+# Human vs. Rhesus
+sum(ribo.Res.hr$qval < .01)
+
+# Chimp vs. Rhesus
+sum(ribo.Res.rc$qval < .01)
+
+load(file.path(rdadir, "DE.rda"))
+
+```
+
+
+
+
