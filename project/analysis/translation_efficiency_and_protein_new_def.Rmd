@@ -95,57 +95,65 @@ xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
 
 ## Definition of enhanced, attenuated, and null divergence in this document
 
+## RNA-Ribo
+
+ii_sig_TE <- res.riborna$int.qval < .01
+ii_sig_RNA_DE <- rnaRes.Q$qval < .01
+ii_sig_Ribo_DE <- riboRes.Q$qval < .01
+
+# sig. translation efficiency,
+# no sig. DE at RNA level & no sig. DE at Ribo level
+ii_TE_1 <- ii_sig_TE & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
+sum(ii_TE_1)
+
+# sig. translation efficiency, 
+# no sig. DE at RNA level but sig. DE at Ribo level
+ii_TE_2 <- (ii_sig_TE) & !ii_sig_RNA_DE & ii_sig_Ribo_DE
+sum(ii_TE_2)
+
+# sig. translation efficiency, 
+# sig. DE at RNA level
+# Enhanced divergence
+ii_riboGTrna <- 
+  (ii_sig_TE) & ii_sig_RNA_DE & 
+        ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
+        (xy.riborna$rna * xy.riborna$ribo > 0 ) )
+sum(ii_riboGTrna)
+
+# sig. translation efficiency, 
+# no sig. DE at RNA level but sig. DE at Ribo level
+# Attenuated divergence
+ii_rnaGTribo <- 
+  (ii_sig_TE) & ii_sig_RNA_DE & 
+        ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
+        (xy.riborna$rna * xy.riborna$ribo < 0) ) 
+sum(ii_rnaGTribo)
+
+
+
 ## RNA-Protein
 
 # Attenuated divergence
-ii_rnaGTpro = res.rnapro$int.qval<.01 & ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro)) | (xy.rnapro$rna * xy.rnapro$pro < 0) )
+ii_rnaGTpro <- 
+  (res.rnapro$int.qval < .01) & ii_sig_RNA_DE & 
+    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
+    (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
 
 # Enhanced divegence
-ii_proGTrna = res.rnapro$int.qval<.01 & ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
+ii_proGTrna <- 
+  (res.rnapro$int.qval < .01) & ii_sig_RNA_DE & 
+        ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
+        (xy.rnapro$rna * xy.rnapro$rna > 0 ) )
 
-# Null divergence
-ii_proNULLrna = (!(ii_rnaGTpro|ii_proGTrna))
+
+# Prop. of RNA-protein attenuated genes among RNA-Ribo attenuated genes
+sum(ii_rnaGTpro & ii_rnaGTribo)/sum(ii_rnaGTribo)
 
 
-## RNA-Ribo
-
-# Attenuated divergence
-ii_rnaGTribo <- 
-  res.riborna$int.qval<.01 & ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo)) | (xy.riborna$rna * xy.riborna$ribo < 0) )
-
-# Enhanced divegence
-ii_riboGTrna <-
-  res.riborna$int.qval<.01 & ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-
-# Null divergence
-ii_riboNULLrna <- (!(ii_rnaGTribo|ii_riboGTrna))
-
-# sum(ii_rnaGTribo)
-# sum(ii_rnaGTpro*ii_rnaGTribo)/sum(ii_rnaGTribo)
-
-# sum(ii_riboGTrna)
-# sum(ii_proGTrna*ii_riboGTrna)/sum(ii_riboGTrna)
+# Prop. of RNA-protein enhanced genes among RNA-Ribo enhanced genes
+sum(ii_proGTrna & ii_riboGTrna)/sum(ii_riboGTrna)
 ```
 
-
-```{r}
-## Number of genes when considering attenation/enhancemnt of divergence
-## at the translation level relative to the transcript level
-mat_rnaribo_human_chimp <- 
-  matrix(0, 2, 2, 
-  dimnames = list(
-  row = c("# genes",
-    paste("# genes with the same direction of divergence at the",
-    "protein level relative to the transcript level") ),
-  column = c("Attenuated translation",
-    "Enhanced translation") ) )
-mat_rnaribo_human_chimp[1,1] <- sum(ii_rnaGTribo)
-mat_rnaribo_human_chimp[1,2] <- sum(ii_riboGTrna)
-mat_rnaribo_human_chimp[2,1] <- sum(ii_rnaGTribo*ii_rnaGTpro)
-mat_rnaribo_human_chimp[2,2] <- sum(ii_riboGTrna*ii_proGTrna)
-
-kable(mat_rnaribo_human_chimp)
-```
 
 
 ## Tests
@@ -174,10 +182,10 @@ that there is no association between translation efficiency divergence and RNA-p
 
 ```{r}
 ## Make a data matrix for Fisher's exact test input
-mat_fish <- matrix(0, 2, 2, 
-                   dimnames = list( rna_ribo = c("Attenuation", "Enhancement"),
-                                    rna_pro = c("Attenuation", "Enhancement") ) )
-mat_fish[1,1] <- sum(ii_rnaGTribo*ii_rnaGTpro)
+mat_fish <- 
+  matrix(0, 2, 2, 
+  dimnames = list( rna_ribo = c("Attenuation", "Enhancement"),                              rna_pro = c("Attenuation", "Enhancement") ) )
+mat_fish[1,1] <- sum(ii_TE_4*ii_rnaGTpro)
 mat_fish[2,2] <- sum(ii_riboGTrna*ii_proGTrna)
 mat_fish[1,2] <- sum(ii_rnaGTribo*ii_proGTrna)
 mat_fish[2,1] <- sum(ii_riboGTrna*ii_rnaGTpro)

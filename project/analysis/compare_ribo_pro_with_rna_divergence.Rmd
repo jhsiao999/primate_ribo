@@ -93,10 +93,11 @@ eSet_chimp_rhesus <- eSetRRP.RP.Q.log2[ , eSetRRP.RP.Q.log2$species != "human" &
                      eSetRRP.RP.Q.log2$seqData != "protein"]
 res.riborna_chimp_rhesus <- interact2way_full_buffer(eSet_chimp_rhesus) 
 
-save(res.riborna, file = file.path(rdadir,"TE_other_interspecies.rda"))
+save(res.riborna_human_rhesus, res.riborna_chimp_rhesus,
+     file = file.path(rdadir,"TE_other_interspecies.rda"))
 
-sum(res.riborna_human_rhesus$int.qval < .01)
-sum(res.riborna_chimp_rhesus$int.qval < .01)
 ```
+
+
 
 
