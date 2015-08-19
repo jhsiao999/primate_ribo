@@ -14,7 +14,7 @@ tagline: A comparative study of translation divergence
 
 - [Ribosome profiling](project/analysis/DE-ribo.html)
 - [RNA and mass spectrometry](project/analysis/upcoming.html)
-- [For the 3,188 genes quantified in all 3 phenotypes](project/analysis/DE_all_phenotypes.html)
+- [For the 3,188 genes quantified in all 3 phenotypes](project/analysis/upcoming.html)
 
 
 #### Differential divergence analysis
