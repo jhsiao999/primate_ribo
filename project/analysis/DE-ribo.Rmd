@@ -1,0 +1,1335 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Compare translation levels between species"
+    theme: default
+    theme.chooser: TRUE
+    highlight.chooser: TRUE
+---
+
+
+Ribosome profiling analysis
+=================================
+
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+[view source](DE-ribo.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+
+## Load eSet of Ribosome profiling data only
+load(file=file.path(rdadir,"eSetRiboProfile.rda"))
+```
+
+
+
+Overview
+=========
+
+
+> Ribosome profiling data of ``r NROW(exprs(eSet.ribo.none.f))`` genes were included in the comparative anaysis of gene-level ribosome protected fragment counts. These genes met the filtering criteria of 1) being quantified with sufficient number of samples in the comparative analysis of human versus chimp or human versus rhesus, and 2) being quantified in at least 3 samples among each species (> 0 count). The data set before filtering contain ``r NROW(exprs(eSet.ribo.none))`` genes. 
+
+> Comparative analysis of ribosome protected fragment coverage was performed on 1) RPKM values after standardizing with respect to GM19238, followed by qunantile normalization; and, 2) RPKM values before standardizing with respect ot GM19238, followed by quantile normalization. In the data with raw RPKM values, the sample GM19238 was removed from the analysis for a fair comparison of results between analyses based on standardized RPKM values and unstandardized RPKM values. 
+
+
+
+```{r, eval = FALSE}
+# Make expression data set from read count table
+source(file.path(codedir,"makeExpressionSet_ribo.r"))
+riboCountFiles <- list.files(file.path(dir,"data/ribo"),
+                             pattern="*_081514.table",full.name=TRUE)
+makeSet <- makeExpressionSet_ribo(riboCountFiles)
+eSet.ribo <- makeSet$eSet
+
+# Remove reference cell line from the expression set
+eSet.ribo.none <- eSet.ribo[,eSet.ribo$celline!="H19238"]
+
+# Filtering: include only genes quantified in 3 or more samples 
+# in all three species
+species <- unique(eSet.ribo.none$species)
+ii.species <- lapply(1:length(species),function(j) {
+      temp.mat <- exprs(eSet.ribo.none)[,eSet.ribo.none$species==species[j]]>0 
+      rowSums(temp.mat) > 2
+}) 
+names(ii.species) <- species
+ii.species <- data.frame(do.call(cbind,ii.species))
+ii.filt <- ii.species$human*ii.species$chimp*ii.species$rhesus==1
+eSet.ribo.none.f <- eSet.ribo.none[ii.filt,]
+
+# Compute RPKM values
+ribo.rpkm <- 100*( t(t(exprs(eSet.ribo.none.f) )/
+                colSums(exprs(eSet.ribo.none.f)))*(10^6))/
+                fData(eSet.ribo.none.f)$len
+
+# Replace the zero RPKM with NA's
+ii.zero <- which(ribo.rpkm == 0,arr.ind=TRUE)
+for (i in 1:dim(ii.zero)[1]) {
+  ribo.rpkm[ii.zero[i,1], ii.zero[i,2]] = NA
+}
+
+# Qunatile normalize the RPKM values
+source(file.path(codedir,"normalizationMethods.r"))
+ribo.rpkm.nos.q <- normalize(ribo.rpkm,method="quantile",log=FALSE)
+
+# Make an expression set of ribosome profiling RPKM values
+# quantie-normalized across species
+# Exclude the standard cell line
+eSet.ribo.rpkm.nos.q <-
+  ExpressionSet(assayData = as.matrix(log2(ribo.rpkm.nos.q)),
+                phenoData = new("AnnotatedDataFrame",
+                        data = pData(eSet.ribo.none.f)),
+                experimentData <- experimentData(eSet.ribo.none.f))
+featureData(eSet.ribo.rpkm.nos.q) <- featureData(eSet.ribo.none.f)
+
+
+# Compute relative RPKM 
+# Only keep genes quantified with more than 1 read in the 
+# internal standard cell line
+idx.gene.filt <- fData(eSet.ribo.none.f)$ENSGID
+idx.gene.ref <- which(fData(eSet.ribo)$ENSGID %in% idx.gene.filt)
+gene.ref <- exprs(eSet.ribo[idx.gene.ref,eSet.ribo$celline=="H19238"])
+gene.ref <- gene.ref[gene.ref!=0, ]
+
+eSet.ribo.none.f <- eSet.ribo.none.f[ which(fData(eSet.ribo.none.f)$ENSGID %in% names(gene.ref)),]
+
+ribo.rpkm <- 100*(t(t(exprs(eSet.ribo.none.f))/
+                 colSums(exprs(eSet.ribo.none.f)))*(10^6) )/
+                 fData(eSet.ribo.none.f)$len
+
+ribo.rpkm.std <- 100*(gene.ref/sum(gene.ref))*(10^6)/fData(eSet.ribo.none.f)$len
+ribo.rpkm.s <- ribo.rpkm/ribo.rpkm.std
+
+# Replace the zero standardized RPKM with NA's
+ii.zero <- which(ribo.rpkm.s==0,arr.ind=TRUE)
+for (i in 1:dim(ii.zero)[1]) {
+  ribo.rpkm.s[ii.zero[i,1],ii.zero[i,2]] = NA
+}
+
+# Qunatile normalize the standarized RPKM values
+source(file.path(codedir,"normalizationMethods.r"))
+ribo.rpkm.q <- normalize(ribo.rpkm.s,method="quantile",log=FALSE)
+
+eSet.ribo.rpkmq <- ExpressionSet(assayData=as.matrix(log2(ribo.rpkm.q)),
+                phenoData=new("AnnotatedDataFrame",
+                        data=pData(eSet.ribo.none.f)),
+                experimentData=experimentData(eSet.ribo.none.f))
+featureData(eSet.ribo.rpkmq)<-featureData(eSet.ribo.none.f)
+
+
+# Differential expression anaysis 
+# on the relative RPKM values
+source(file.path(codedir,"DEtesting.r"))
+ribo.Res.hc <- testDE(eSet.ribo.rpkmq,seqData="ribo",
+                      species=c("human","chimp"))$res
+ribo.Res.hr <- testDE(eSet.ribo.rpkmq,seqData="ribo",
+                      species=c("human","rhesus"))$res
+ribo.Res.rc <- testDE(eSet.ribo.rpkmq,seqData="ribo",
+                      species=c("chimp","rhesus"))$res
+
+# Differential expression testing on 
+# the RPKM values
+source(file.path(codedir,"DEtesting.r"))
+ribo.Res.hc.nos <- testDE(eSet.ribo.rpkm.nos.q,seqData="ribo",
+                          species=c("human","chimp"))$res
+ribo.Res.hr.nos = testDE(eSet.ribo.rpkm.nos.q,seqData="ribo",
+                         species=c("human","rhesus"))$res
+ribo.Res.rc.nos = testDE(eSet.ribo.rpkm.nos.q,seqData="ribo",
+                         species=c("chimp","rhesus"))$res
+
+save(eSet.ribo.none,eSet.ribo.none.f,
+     ribo.rpkm.s,ribo.rpkm.q,ribo.rpkm,
+     eSet.ribo.rpkmq,ribo.Res.hc,ribo.Res.hr,ribo.Res.rc,
+     eSet.ribo.rpkm.nos.q,ribo.Res.hc.nos,ribo.Res.hr.nos,ribo.Res.rc.nos,
+     file=file.path(rdadir,"eSetRiboProfile.rda"))
+```
+
+
+Sequencing depth and gene count distributions
+=============================================
+
+
+```{r, fig.width=10,fig.height=12}
+par(mfrow=c(4,2),cex.axis=.7,cex.main=1.2)
+
+# sequencing depth
+barplot(colSums(exprs(eSet.ribo.none.f),na.rm=T),
+        col=c(rep("blue",5),rep("red",5),rep("green",5)) ,axes=F,ylim=c(0,12e+06),las=2)
+axis(1);axis(2)
+title(xlab="samples",ylab="sequencing depth",line=4)
+title(main="sequencing depth",line=1)
+
+plot(0,pch="",axes=F,xlab="",ylab="",main="")
+
+# gene count boxplots
+boxplot(log2(exprs(eSet.ribo.none.f)),
+        col=c(rep("blue",5),rep("red",5),rep("green",5)),ylim=c(0,20),
+        outcol=c(rep("blue",5),rep("red",5),rep("green",5)),axes=F,main="",xlab="",ylab="")
+axis(1,at=seq(1,15,1),labels=c(eSet.ribo.none.f$celline),las=2,tick=F)
+axis(2)
+title(xlab="samples",ylab="log2-count",line=4)
+title(main="log2 gene count boxplot",line=1)
+
+plot(0,pch="",xlim=c(-3,20),ylim=c(0,.2),xlab="",ylab="",axes=F)
+axis(1);axis(2)
+for (ss in seq_along(c("chimp","human","rhesus"))) {
+  ii = eSet.ribo.none.f$species==c("chimp","human","rhesus")[ss]
+  mat = log2(exprs(eSet.ribo.none.f)[ii,])
+  for (i in 1:sum(ii)) {
+    lines(density(log2(exprs(eSet.ribo.none.f))[,ii][,i],na.rm=T),
+          col=c("blue","red","green")[ss])
+    }
+  }
+title(xlab="log2 gene count density",main="density plot")
+
+# log2 RPKM plots (unstandardized)
+boxplot(log2(ribo.rpkm),
+        col=c(rep("blue",5),rep("red",5),rep("green",5)), ylim=c(-15,15),
+        outcol=c(rep("blue",5),rep("red",5),rep("green",5)),
+        axes=F,main="",xlab="",ylab="")
+axis(1,at=seq(1,15,1),labels=c(eSet.ribo.none.f$celline),las=2,tick=F)
+axis(2)
+title(xlab="samples",ylab="log2-RPKM",line=4)
+title(main="log2 RPKM boxplot",line=1)
+
+plot(0,pch="",xlim=c(-15,15),ylim=c(0,.2),xlab="",ylab="",axes=F)
+axis(1);axis(2)
+for (ss in seq_along(c("chimp","human","rhesus"))) {
+  ii = eSet.ribo.none.f$species==c("chimp","human","rhesus")[ss]
+  for (i in 1:sum(ii)) {
+    lines(density(log2(ribo.rpkm)[,ii][,i],na.rm=T),
+          col=c("blue","red","green")[ss])
+    }
+  }
+title(xlab="log2 RPKM density",main="density plot")
+
+# log2 RPKM plots (standardized)
+boxplot(log2(ribo.rpkm.s),
+        col=c(rep("blue",5),rep("red",6),rep("green",5)),ylim=c(-15,15),
+        outcol=c(rep("blue",5),rep("red",6),rep("green",5)),
+        axes=F,main="",xlab="",ylab="")
+axis(1,at=seq(1,15,1),labels=c(eSet.ribo.none.f$celline),tick=F,las=2)
+axis(2)
+title(xlab="samples",ylab="log2-count",line=4)
+title(main="log2 RPKM relative to H19238 boxplot",line=1)
+
+ribo.rpkm.s.foo <- ribo.rpkm.s[,-11]
+species = eSet.ribo.none.f$species[-11]
+plot(0,pch="",xlim=c(-15,15),ylim=c(0,.7),xlab="",ylab=""
+     ,axes=F)
+axis(1);axis(2)
+for (ss in seq_along(c("chimp","human","rhesus"))) {
+  ii = species==c("chimp","human","rhesus")[ss]
+  for (i in 1:sum(ii)) {
+    lines(density(log2(ribo.rpkm.s.foo)[,ii][,i],na.rm=T),
+          col=c("blue","red","green")[ss])
+    }
+  }
+title(xlab="log2 RPKM relative to H19238 density",main="density plot")
+```
+
+
+DE testing results (relative RPKM)
+==================================
+
+
+## MA plots and volcano plots
+
+
+```{r,eval=T,echo=F,message=FALSE,fig.width=10,fig.height=12}
+load(file.path(rdadir,"eSetRiboProfile.rda"))
+
+par(mfrow=c(3,2),mar=c(5,6,2,1),cex.axis=.9,cex.main=1.2)
+
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-8,8),ylim=c(-10,10),main="",axes=F)
+points(xx[ribo.Res.hc$qval<.01],yy[ribo.Res.hc$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hc$qval<.001],yy[ribo.Res.hc$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+abline(h=-1,col="red",lty=2)
+abline(h=1,col="red",lty=2)
+title(main="Human vs. Chimp",line=1)
+mtext(paste(sum(ribo.Res.hc$qval < .01,na.rm=T),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hc$qval < .001,na.rm=T),"sig. genes at qval < .001"),
+      3,line=-1.5,cex=.7)
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.hc$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,6),axes=F,
+              xlim=c(-10,10),xlab="log(H/C)",ylab="-log10(q-value)")
+points(xx[ribo.Res.hc$qval<.01],yy[ribo.Res.hc$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hc$qval<.001],yy[ribo.Res.hc$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+title(main="Human vs. Chimp",line=1)
+mtext(paste(sum(ribo.Res.hc$qval < .01,na.rm=T),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hc$qval < .001,na.rm=T),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+
+# human versus rhesus
+
+mat=lapply(seq_along(c("human","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","rhesus")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(R)",ylab="log(H/R)",
+              xlim=c(-8,8),ylim=c(-11,11),main="",axes=F)
+points(xx[ribo.Res.hr$qval<.01],yy[ribo.Res.hr$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hr$qval<.001],yy[ribo.Res.hr$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+abline(h=-1,col="red",lty=2)
+abline(h=1,col="red",lty=2)
+title(main="Human vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.hr$qval < .01,na.rm=T),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hr$qval < .001,na.rm=T),"sig. genes at qval < .001"),
+      3,line=-1.5,cex=.7)
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.hr$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,8),axes=F,
+              xlim=c(-11,11),xlab="log(H/R)",ylab="-log10(q-value)")
+points(xx[ribo.Res.hr$qval<.01],yy[ribo.Res.hr$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hr$qval<.001],yy[ribo.Res.hr$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+title(main="Human vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.hr$qval < .01,na.rm=T),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hr$qval < .001,na.rm=T),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+
+# rhesus versus chimp
+
+mat=lapply(seq_along(c("chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("chimp","rhesus")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(C)+log(R)",ylab="log(C/R)",
+              xlim=c(-7,7),ylim=c(-12,12),main="",axes=F)
+points(xx[ribo.Res.rc$qval<.01],yy[ribo.Res.rc$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.rc$qval<.001],yy[ribo.Res.rc$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+abline(h=-1,col="red",lty=2)
+abline(h=1,col="red",lty=2)
+title(main="Chimp vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.rc$qval < .01,na.rm=T),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.rc$qval < .001,na.rm=T),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.rc$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,12),axes=F,
+              xlim=c(-12,12),xlab="log(C/R)",ylab="-log10(q-value)")
+points(xx[ribo.Res.rc$qval<.01],yy[ribo.Res.rc$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.rc$qval<.001],yy[ribo.Res.rc$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+title(main="Chimp vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.rc$qval < .01,na.rm=T),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.rc$qval < .001,na.rm=T),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+```
+
+
+### Check outlier genes in the human-versus-chimp comparison
+
+> The outlier genes in the analysis based on standardized RPKM values also 
+have a significant, but smaller fold change (q-value < .01) in analysis based on unstandardized RPKM values. Looking closer at the expression levels based on each data transformation, the expression levels based on standardized RPKM values have a bigger fold change between human and chimp.
+
+```{r,eval=F,echo=F,fig.height=10,fig.width=8}
+gene.check = ribo.Res.hc$ENSGID[-log10(ribo.Res.hc$qval)>6]
+
+par(mfrow=c(3,3))
+for (i in 1:3) {
+eSet.temp = eSet.ribo.rpkmq[which(fData(eSet.ribo.rpkmq)$ENSGID %in% gene.check),]
+plot(rep(1,5),(exprs(eSet.temp[i,eSet.temp$species=="human"])),
+  xlim=c(0,3),axes=F,xlab="",ylab="",ylim=c(-4,2))
+points(rep(2,5),exprs(eSet.temp[1,eSet.temp$species=="chimp"]))
+axis(1,at=c(0,1,2,3),labels=c("","human","chimp",""));axis(2)
+title(main="log2 RPKM (standardized)",line=3)
+title(ylab="log2 RPKM (standardized)")
+title(paste(ribo.Res.hc$ENSGID[which(ribo.Res.hc$ENSGID %in% gene.check[i])], "\n -log10 q-val = ",
+            round(-log10(ribo.Res.hc$qval[which(ribo.Res.hc$ENSGID %in% gene.check[i])]),2) ) ,line=0)
+
+eSet.temp = eSet.ribo.rpkm.nos.q[which(fData(eSet.ribo.rpkm.nos.q)$ENSGID %in% gene.check),]
+plot(rep(1,5),(exprs(eSet.temp[i,eSet.temp$species=="human"])),
+  xlim=c(0,3),axes=F,xlab="",ylab="",ylim=c(-8,8))
+points(rep(2,5),exprs(eSet.temp[1,eSet.temp$species=="chimp"]))
+axis(1,at=c(0,1,2,3),labels=c("","human","chimp",""));axis(2)
+title(main="log2 RPKM (unstandardized)",line=3)
+title(ylab="log2 RPKM (unstandardized)")
+title(paste(ribo.Res.hc$ENSGID[which(ribo.Res.hc$ENSGID %in% gene.check[i])], "\n -log10 q-val = ",
+            round(-log10(ribo.Res.hc.nos$qval[which(ribo.Res.hc$ENSGID %in% gene.check[i])]),2) ) ,line=0)
+
+eSet.temp = eSet.ribo.f[which(fData(eSet.ribo.f)$ENSGID %in% gene.check),]
+plot(rep(1,5),log2(exprs(eSet.temp[i,eSet.temp$species=="human"])[-6])+.5,
+  xlim=c(0,3),axes=F,xlab="",ylab="",ylim=c(-2,13))
+points(rep(2,5),log2(exprs(eSet.temp[1,eSet.temp$species=="chimp"])+.5))
+axis(1,at=c(0,1,2,3),labels=c("","human","chimp",""));axis(2)
+title(ylab="log2 (count+.5)")
+title(main=paste(ribo.Res.hc$ENSGID[which(ribo.Res.hc$ENSGID %in% gene.check[i])], "\n log2 (raw count + .5)") ,line=0)
+}
+```
+
+
+
+```{r, eval=F,fig.height=4,fig.width=4,include = FALSE}
+### Relative RPKM versus RPKM
+foo1 = rowMeans(exprs(eSet.ribo.rpkmq[,eSet.ribo.rpkmq$species=="human"])) - rowMeans(exprs(eSet.ribo.rpkmq[,eSet.ribo.rpkmq$species=="chimp"]))
+
+foo2 = rowMeans(exprs(eSet.ribo.rpkm.nos.q[,eSet.ribo.rpkm.nos.q$species=="human"])) - rowMeans(exprs(eSet.ribo.rpkm.nos.q[,eSet.ribo.rpkm.nos.q$species=="chimp"]))
+
+plot(foo2,foo1,xlim=c(-12,10),ylim=c(-12,10),axes=F,xlab="",ylab="")
+title(ylab="log2 FC on standardized RPKM")
+title(xlab="log2 FC on unstandardized RPKM")
+title(main="human-versus-chimp FC comparison based on \n standardized RPKM values and unstandardized RPKM values")
+axis(1);axis(2)
+abline(a=0,b=1,col="red",lty=2)
+# points(foo2[-log10(ribo.Res.hc$qval)>2],foo1[-log10(ribo.Res.hc$qval)>2],col="red")
+# points(foo2[-log10(ribo.Res.hc.nos$qval)>2],foo1[-log10(ribo.Res.hc.nos$qval)>2],col="green")
+```
+
+
+
+## Distribution of fold change of between-species comparisons 
+
+
+### Significant genes versus non-significant genes
+
+```{r,eval=T,echo=FALSE,fig.width=10,fig.height=8}
+load(file.path(rdadir,"eSetRiboProfile.rda"))
+
+par(mfrow=c(2,2),mar=c(5,6,2,1),cex.axis=.9,cex.main=1.2)
+
+# Human versus Chimp
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+
+yy1=(mat[[1]]-mat[[2]])[ribo.Res.hc$qval<.01]
+yy2=(mat[[1]]-mat[[2]])[ribo.Res.hc$qval<.001]
+p1=hist((mat[[1]]-mat[[2]])[ribo.Res.hc$qval<.01],plot=FALSE,breaks=100)
+p2=hist((mat[[1]]-mat[[2]])[ribo.Res.hc$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2),max(yy1,yy2))
+plot(p1,col=rgb(190/250,190/250,190/250,.20),xlim=c(-12,12),ylim=c(0,300),
+     main="",xlab="log2 Human/Chimp Fold Change)")
+plot(p2,col=rgb(1,.5,1,.40),add=T,main="")
+title(main="Human vs. Chimp",line=1)
+mtext(paste(sum(ribo.Res.hc$qval < .01),"sig. genes at qval < .01","(",
+            sum(ribo.Res.hc$qval < .01 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hc$qval < .01 & mat[[1]]-mat[[2]] < 0)," FC < 0)","\n",
+                sum(ribo.Res.hc$qval < .001),"sig. genes at qval < .001","(",
+            sum(ribo.Res.hc$qval < .001 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hc$qval < .001 & mat[[1]]-mat[[2]] < 0)," FC < 0)"),
+      3,line=-1.5,cex=.7)
+
+
+# Human versus Rhesus
+
+mat=lapply(seq_along(c("human","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","rhesus")
+
+
+yy1=(mat[[1]]-mat[[2]])[ribo.Res.hr$qval<.01]
+yy2=(mat[[1]]-mat[[2]])[ribo.Res.hr$qval<.001]
+p1=hist((mat[[1]]-mat[[2]])[ribo.Res.hr$qval<.01],plot=FALSE,breaks=100)
+p2=hist((mat[[1]]-mat[[2]])[ribo.Res.hr$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2),max(yy1,yy2))
+plot(p1,col=rgb(190/250,190/250,190/250,.20),xlim=c(-12,12),ylim=c(0,300),
+     main="",xlab="log2 Human/Rhesus Fold Change)")
+plot(p2,col=rgb(1,.5,1,.40),add=T,main="")
+title(main="Human vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.hr$qval < .01),"sig. genes at qval < .01","(",
+            sum(ribo.Res.hr$qval < .01 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hr$qval < .01 & mat[[1]]-mat[[2]] < 0)," FC < 0)","\n",
+                sum(ribo.Res.hr$qval < .001),"sig. genes at qval < .001","(",
+            sum(ribo.Res.hr$qval < .001 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hr$qval < .001 & mat[[1]]-mat[[2]] < 0)," FC < 0)"),
+      3,line=-1.5,cex=.7)
+
+
+# Chimp versus Rhesus
+
+mat=lapply(seq_along(c("chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("chimp","rhesus")
+
+
+yy1=(mat[[1]]-mat[[2]])[ribo.Res.rc$qval<.01]
+yy2=(mat[[1]]-mat[[2]])[ribo.Res.rc$qval<.001]
+p1=hist((mat[[1]]-mat[[2]])[ribo.Res.rc$qval<.01],plot=FALSE,breaks=100)
+p2=hist((mat[[1]]-mat[[2]])[ribo.Res.rc$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2,na.rm=T),max(yy1,yy2,na.rm=T))
+plot(p1,col=rgb(190/250,190/250,190/250,.20),xlim=c(-12,12),ylim=c(0,300),
+     main="",xlab="log2 Chimp/Rhesus fold Change")
+plot(p2,col=rgb(1,.5,1,.40),add=T,main="")
+title(main="Chimp vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.rc$qval < .01),"sig. genes at qval < .01","(",
+            sum(ribo.Res.rc$qval < .01 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.rc$qval < .01 & mat[[1]]-mat[[2]] < 0)," FC < 0)","\n",
+                sum(ribo.Res.rc$qval < .001),"sig. genes at qval < .001","(",
+            sum(ribo.Res.rc$qval < .001 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.rc$qval < .001 & mat[[1]]-mat[[2]] < 0)," FC < 0)"),
+      3,line=-1.5,cex=.7)
+```
+
+
+
+
+\pagebreak
+
+### Distribution of fold change of significant genes in human-versus-chimp comparsion versus human-versus-rhesus comparison
+
+```{r,eval=T,echo=FALSE,fig.width=5,fig.height=5}
+load(file.path(rdadir,"eSetRiboProfile.rda"))
+
+# Human versus Chimp
+mat.hc=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat.hc)=c("human","chimp")
+
+mat.hr=lapply(seq_along(c("human","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat.hr)=c("human","rhesus")
+
+
+yy1=(mat.hc[[1]]-mat.hc[[2]])[ribo.Res.hc$qval<.001]
+yy2=(mat.hr[[1]]-mat.hr[[2]])[ribo.Res.hr$qval<.001]
+p1=hist((mat.hc[[1]]-mat.hc[[2]])[ribo.Res.hc$qval<.001],plot=FALSE,breaks=100)
+p2=hist((mat.hr[[1]]-mat.hr[[2]])[ribo.Res.hr$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2,na.rm=T),max(yy1,yy2,na.rm=T))
+
+par(cex.main=.9)
+plot(p1,col=rgb(.1,.8,1,.50),xlim=c(-12,12),ylim=c(0,120),
+     main="",xlab="log2 Fold Change")
+plot(p2,col=rgb(1,.5,1,.20),add=T,main="")
+title(main="Fold change distribution of in-group versus out-group comparison \n (q-value < .01)",
+      line=1)
+mtext(paste("Human-versus-chimp:", sum(ribo.Res.hc$qval < .001),"sig. genes \n ",
+            "Human-versus-rhesus:", sum(ribo.Res.hr$qval < .001),"sig. genes"),
+      3,line=-1.5,cex=.7)
+
+```
+
+
+
+
+
+
+
+\pagebreak
+
+## p-value distribution
+
+```{r,eval=T,echo=FALSE,fig.width=10,fig.height=8}
+par(mfrow=c(2,2),mar=c(5,6,2,1),cex.axis=.9,cex.main=1.2)
+
+hist(ribo.Res.hc$pval[order(ribo.Res.hc$pval)],breaks=50,density=50,xlab="",main="")
+title(xlab="p-value",line=2.5)
+title(main="Human vs. Chimp DE test p-value distribution",line=1)
+
+hist(ribo.Res.hr$pval[order(ribo.Res.hr$pval)],breaks=50,density=50,xlab="",main="")
+title(xlab="p-value",line=2.5)
+title(main="Human vs. Rhesus DE test p-value distribution",line=1)
+
+hist(ribo.Res.rc$pval[order(ribo.Res.rc$pval)],breaks=50,density=50,xlab="",main="")
+title(xlab="p-value",line=2.5)
+title(main="Chimp vs. Rhesus DE test p-value distribution",line=1)
+```
+
+
+\pagebreak
+
+## Overlap of significant genes at q-value < .01
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+#par(mfrow=c(1,2),cex.main=.9)
+# require(gplots)
+# venn(list(HumanRhesus = ribo.Res.hr$ENSGID[ribo.Res.hr$qval<.01],
+#           HumanChimp = ribo.Res.hc$ENSGID[ribo.Res.hc$qval<.01]))
+mat=data.frame(HumanRhesus = ribo.Res.hr$qval<.01,
+          HumanChimp = ribo.Res.hc$qval<.01)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.width=6.5,fig.height=6.5}
+require(gplots)
+venn(list(HumanChimp = ribo.Res.hc$ENSGID[ribo.Res.hc$qval<.01],
+          HumanRhesus = ribo.Res.hr$ENSGID[ribo.Res.hr$qval<.01],
+          ChimpRhesus = ribo.Res.rc$ENSGID[ribo.Res.rc$qval<.01]))
+```
+
+
+
+\pagebreak
+
+## Overlap of significant genes at q-value < .001
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+#par(mfrow=c(1,2),cex.main=.9)
+# venn(list(HumanRhesus = ribo.Res.hr$ENSGID[ribo.Res.hr$qval<.001],
+#           HumanChimp = ribo.Res.hc$ENSGID[ribo.Res.hc$qval<.001]))
+mat=data.frame(HumanRhesus = ribo.Res.hr$qval<.001,
+          HumanChimp = ribo.Res.hc$qval<.001)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.width=6.5,fig.height=6.5}
+require(gplots)
+venn(list(HumanChimp = ribo.Res.hc$ENSGID[ribo.Res.hc$qval<.001],
+          HumanRhesus = ribo.Res.hr$ENSGID[ribo.Res.hr$qval<.001],
+          ChimpRhesus = ribo.Res.rc$ENSGID[ribo.Res.rc$qval<.001]))
+```
+
+
+
+
+\pagebreak
+
+## Comparative analysis of fold change (q-value < .001)
+
+### Human versus Chimp and Rhesus
+
+```{r,echo=FALSE,eval=T,fig.height=4.8,fig.width=4.8}
+mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp","rhesus")
+
+#par(mfrow=c(2,1),mar=c(2,4,4,1))
+xy=cbind(mat[[1]]-mat[[3]],mat[[1]]-mat[[2]])
+#dcols=densCols(xy,nbin=1000)
+plot(xy,pch="",xlim=c(-10,10),ylim=c(-10,10),axes=F,xlab="",
+     ylab="")
+points(x=xy[ribo.Res.hr$qval<.001,1],y=xy[ribo.Res.hr$qval<.001,2],col="cyan",cex=.7)
+points(x=xy[ribo.Res.hc$qval<.001,1],y=xy[ribo.Res.hc$qval<.001,2],col="green",cex=.7)
+points(x=xy[ribo.Res.hc$qval<.001 & ribo.Res.hr$qval < .001,1],
+       y=xy[ribo.Res.hc$qval<.001 & ribo.Res.hr$qval < .001,2],col="red",cex=.7)
+axis(1,at=seq(-10,10,by=5));axis(2,at=seq(-10,10,5))
+title(xlab="log2 Human-to-Rhesus FC",ylab="log2 Human-to-Chimp FC",line=2.5)
+title(main="",line=1)
+legend("topright",
+ legend=c(paste("Sig. Human-to-Chimp fold change (",sum(ribo.Res.hc$qval<.001),"genes )"),
+ paste("Sig. Human-to-Rhesus fold change (",sum(ribo.Res.hr$qval<.001),"genes )"),
+ paste("Both sig. (",sum(ribo.Res.hr$qval<.001 & ribo.Res.hc$qval<.001),"genes )")),
+       pch=16,col=c("green","cyan","red"),horiz=F,cex=.6)
+```
+
+
+
+```{r,echo=FALSE,eval=F,fig.height=4.8,fig.width=4.8}
+### Chimp versus Humand and Rhesus
+mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp","rhesus")
+
+#par(mfrow=c(2,1),mar=c(2,4,4,1))
+xy=cbind(mat[[2]]-mat[[3]],mat[[2]]-mat[[1]])
+dcols=densCols(xy,nbin=1000)
+plot(xy,pch="",xlim=c(-10,10),ylim=c(-10,10),axes=F,xlab="",
+     ylab="")
+points(x=xy[ribo.Res.hc$qval<.001,1],y=xy[ribo.Res.hc$qval<.001,2],col="green",cex=.7)
+points(x=xy[ribo.Res.rc$qval<.001,1],y=xy[ribo.Res.rc$qval<.001,2],col="cyan",cex=.7)
+points(x=xy[ribo.Res.hc$qval<.001 & ribo.Res.rc$qval < .001,1],
+       y=xy[ribo.Res.hc$qval<.001 & ribo.Res.rc$qval < .001,2],col="red",cex=.7)
+axis(1,at=seq(-10,10,by=5));axis(2,at=seq(-10,10,5))
+title(ylab="log2 Chimp-to-Human FC",xlab="log2 Chimp-to-Rhesus FC",line=2.5)
+title(main="",line=1)
+legend("topright",
+ legend=c(paste("Sig. Chimp-to-Human fold change (",sum(ribo.Res.hc$qval<.001),"genes )"),
+ paste("Sig. Chimp-to-Rhesus fold change (",sum(ribo.Res.rc$qval<.001),"genes )"),
+ paste("Both sig. (",sum(ribo.Res.hc$qval<.001 & ribo.Res.rc$qval<.001),"genes )")),
+       pch=16,col=c("green","cyan","red"),horiz=F,cex=.6)
+```
+
+
+
+
+
+# DE testing results using the unstandardized RPKM values
+
+## MA plots and volcano plots
+
+```{r,eval=T,echo=F,message=FALSE,fig.width=10,fig.height=12}
+load(file.path(rdadir,"eSetRiboProfile.rda"))
+
+par(mfrow=c(3,2),mar=c(5,6,2,1),cex.axis=.9,cex.main=1.2)
+
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","chimp")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(C)",ylab="log(H/C)",
+              xlim=c(-11,11),ylim=c(-12,12),main="",axes=F)
+points(xx[ribo.Res.hc.nos$qval<.01],yy[ribo.Res.hc.nos$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hc.nos$qval<.001],yy[ribo.Res.hc.nos$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+abline(h=-1,col="red",lty=2)
+abline(h=1,col="red",lty=2)
+title(main="Human vs. Chimp",line=1)
+mtext(paste(sum(ribo.Res.hc.nos$qval < .01),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hc.nos$qval < .001),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.hc.nos$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,12),axes=F,
+              xlim=c(-12,12),xlab="log(H/C)",ylab="-log10(q-value)")
+points(xx[ribo.Res.hc.nos$qval<.01],yy[ribo.Res.hc.nos$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hc.nos$qval<.001],yy[ribo.Res.hc.nos$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+title(main="Human vs. Chimp",line=1)
+mtext(paste(sum(ribo.Res.hc.nos$qval < .01),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hc.nos$qval < .001),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+
+# human versus rhesus
+
+mat=lapply(seq_along(c("human","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat)
+  return(mn)
+  })
+names(mat)=c("human","rhesus")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(H)+log(R)",ylab="log(H/R)",
+              xlim=c(-11,11),ylim=c(-12,12),main="",axes=F)
+points(xx[ribo.Res.hr.nos$qval<.01],yy[ribo.Res.hr.nos$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hr.nos$qval<.001],yy[ribo.Res.hr.nos$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+abline(h=-1,col="red",lty=2)
+abline(h=1,col="red",lty=2)
+title(main="Human vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.hr.nos$qval < .01),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hr.nos$qval < .001),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.hr.nos$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,12),axes=F,
+              xlim=c(-12,12),xlab="log(H/R)",ylab="-log10(q-value)")
+points(xx[ribo.Res.hr.nos$qval<.01],yy[ribo.Res.hr.nos$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.hr.nos$qval<.001],yy[ribo.Res.hr.nos$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+title(main="Human vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.hr.nos$qval < .01),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.hr.nos$qval < .001),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+
+# rhesus versus chimp
+
+mat=lapply(seq_along(c("chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("chimp","rhesus")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,xlab="log(C)+log(R)",ylab="log(C/R)",
+              xlim=c(-11,11),ylim=c(-12,12),main="",axes=F)
+points(xx[ribo.Res.rc.nos$qval<.01],yy[ribo.Res.rc.nos$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.rc.nos$qval<.001],yy[ribo.Res.rc.nos$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+abline(h=-1,col="red",lty=2)
+abline(h=1,col="red",lty=2)
+title(main="Chimp vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.rc.nos$qval < .01),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.rc.nos$qval < .001),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.rc.nos$qval)
+xy=cbind(xx,yy)
+dcols=densCols(xy,nbin=1000)
+
+plot(xy,col=dcols,pch=20,ylim=c(0,12),axes=F,
+              xlim=c(-12,12),xlab="log(C/R)",ylab="-log10(q-value)")
+points(xx[ribo.Res.rc.nos$qval<.01],yy[ribo.Res.rc.nos$qval<.01],col="pink",cex=.6)
+points(xx[ribo.Res.rc.nos$qval<.001],yy[ribo.Res.rc.nos$qval<.001],col="red",cex=.4)
+axis(1);axis(2)
+title(main="Chimp vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.rc.nos$qval < .01),"sig. genes at qval < .01","\n",
+                sum(ribo.Res.rc.nos$qval < .001),"sig. genes at qval < .001"),3,line=-1.5,cex=.7)
+
+```
+
+
+\pagebreak
+
+## Fold-change distribution of significant genes 
+
+```{r,eval=T,echo=FALSE,fig.width=10,fig.height=8}
+load(file.path(rdadir,"eSetRiboProfile.rda"))
+
+par(mfrow=c(2,2),mar=c(5,6,2,1),cex.axis=.9,cex.main=1.2)
+
+# Human versus Chimp
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","chimp")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+
+yy1=(mat[[1]]-mat[[2]])[ribo.Res.hc.nos$qval<.01]
+yy2=(mat[[1]]-mat[[2]])[ribo.Res.hc.nos$qval<.001]
+p1=hist((mat[[1]]-mat[[2]])[ribo.Res.hc.nos$qval<.01],plot=FALSE,breaks=100)
+p2=hist((mat[[1]]-mat[[2]])[ribo.Res.hc.nos$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2),max(yy1,yy2))
+plot(p1,col=rgb(190/250,190/250,190/250,.20),xlim=c(-11,11),ylim=c(0,300),
+     main="",xlab="log2 Human/Chimp Fold Change)")
+plot(p2,col=rgb(1,.5,1,.40),add=T,main="")
+title(main="Human vs. Chimp",line=1)
+mtext(paste(sum(ribo.Res.hc.nos$qval < .01),"sig. genes at qval < .01","(",
+            sum(ribo.Res.hc.nos$qval < .01 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hc.nos$qval < .01 & mat[[1]]-mat[[2]] < 0)," FC < 0)","\n",
+                sum(ribo.Res.hc.nos$qval < .001),"sig. genes at qval < .001","(",
+            sum(ribo.Res.hc.nos$qval < .001 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hc.nos$qval < .001 & mat[[1]]-mat[[2]] < 0)," FC < 0)"),
+      3,line=-1.5,cex=.7)
+
+
+# Human versus Rhesus
+
+mat=lapply(seq_along(c("human","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","rhesus")
+
+
+yy1=(mat[[1]]-mat[[2]])[ribo.Res.hr.nos$qval<.01]
+yy2=(mat[[1]]-mat[[2]])[ribo.Res.hr.nos$qval<.001]
+p1=hist((mat[[1]]-mat[[2]])[ribo.Res.hr.nos$qval<.01],plot=FALSE,breaks=100)
+p2=hist((mat[[1]]-mat[[2]])[ribo.Res.hr.nos$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2),max(yy1,yy2))
+plot(p1,col=rgb(190/250,190/250,190/250,.20),xlim=c(-11,11),ylim=c(0,300),
+     main="",xlab="log2 Human/Rhesus Fold Change)")
+plot(p2,col=rgb(1,.5,1,.40),add=T,main="")
+title(main="Human vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.hr.nos$qval < .01),"sig. genes at qval < .01","(",
+            sum(ribo.Res.hr.nos$qval < .01 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hr.nos$qval < .01 & mat[[1]]-mat[[2]] < 0)," FC < 0)","\n",
+                sum(ribo.Res.hr.nos$qval < .001),"sig. genes at qval < .001","(",
+            sum(ribo.Res.hr.nos$qval < .001 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.hr.nos$qval < .001 & mat[[1]]-mat[[2]] < 0)," FC < 0)"),
+      3,line=-1.5,cex=.7)
+
+
+# Chimp versus Rhesus
+
+mat=lapply(seq_along(c("chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("chimp","rhesus")
+
+
+yy1=(mat[[1]]-mat[[2]])[ribo.Res.rc.nos$qval<.01]
+yy2=(mat[[1]]-mat[[2]])[ribo.Res.rc.nos$qval<.001]
+p1=hist((mat[[1]]-mat[[2]])[ribo.Res.rc.nos$qval<.01],plot=FALSE,breaks=100)
+p2=hist((mat[[1]]-mat[[2]])[ribo.Res.rc.nos$qval<.001],plot=FALSE,breaks=100)
+
+lims = c(min(yy1,yy2),max(yy1,yy2))
+plot(p1,col=rgb(190/250,190/250,190/250,.20),xlim=c(-11,11),ylim=c(0,300),
+     main="",xlab="log2 Chimp/Rhesus fold Change")
+plot(p2,col=rgb(1,.5,1,.40),add=T,main="")
+title(main="Chimp vs. Rhesus",line=1)
+mtext(paste(sum(ribo.Res.rc.nos$qval < .01),"sig. genes at qval < .01","(",
+            sum(ribo.Res.rc.nos$qval < .01 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.rc.nos$qval < .01 & mat[[1]]-mat[[2]] < 0)," FC < 0)","\n",
+                sum(ribo.Res.rc.nos$qval < .001),"sig. genes at qval < .001","(",
+            sum(ribo.Res.rc.nos$qval < .001 & mat[[1]]-mat[[2]] > 0)," FC > 0;",
+            sum(ribo.Res.rc.nos$qval < .001 & mat[[1]]-mat[[2]] < 0)," FC < 0)"),
+      3,line=-1.5,cex=.7)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+\pagebreak
+
+## p-value distribution
+
+```{r,eval=T,echo=FALSE,fig.width=10,fig.height=8}
+par(mfrow=c(2,2),mar=c(5,6,2,1),cex.axis=.9,cex.main=1.2)
+
+hist(ribo.Res.hc.nos$pval[order(ribo.Res.hc.nos$pval)],breaks=50,density=50,xlab="",main="")
+title(xlab="p-value",line=2.5)
+title(main="Human vs. Chimp DE test p-value distribution",line=1)
+
+hist(ribo.Res.hr.nos$pval[order(ribo.Res.hr.nos$pval)],breaks=50,density=50,xlab="",main="")
+title(xlab="p-value",line=2.5)
+title(main="Human vs. Rhesus DE test p-value distribution",line=1)
+
+hist(ribo.Res.rc.nos$pval[order(ribo.Res.rc.nos$pval)],breaks=50,density=50,xlab="",main="")
+title(xlab="p-value",line=2.5)
+title(main="Chimp vs. Rhesus DE test p-value distribution",line=1)
+```
+
+
+\pagebreak
+
+## Overlap of significant genes at q-value < .01
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# par(mfrow=c(1,2))
+# require(gplots)
+# venn(list(HumanRhesus = ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval<.01],
+#           HumanChimp = ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval<.01]))
+mat=data.frame(HumanRhesus = ribo.Res.hr.nos$qval<.01,
+          HumanChimp = ribo.Res.hc.nos$qval<.01)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=6.5,fig.width=6.5}
+venn(list(HumanChimp = ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval<.01],
+          HumanRhesus = ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval<.01],
+          ChimpRhesus = ribo.Res.rc.nos$ENSGID[ribo.Res.rc.nos$qval<.01]))
+```
+
+
+\pagebreak
+
+## Overlap of significant genes at q-value < .001
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=4,fig.width=6}
+# par(mfrow=c(1,2))
+# require(gplots)
+# venn(list(HumanRhesus = ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval<.001],
+#           HumanChimp = ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval<.001]))
+mat=data.frame(HumanRhesus = ribo.Res.hr.nos$qval<.001,
+          HumanChimp = ribo.Res.hc.nos$qval<.001)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE,fig.height=6.5,fig.width=6}
+venn(list(HumanChimp = ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval<.001],
+          HumanRhesus = ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval<.001],
+          ChimpRhesus = ribo.Res.rc.nos$ENSGID[ribo.Res.rc.nos$qval<.001]))
+```
+
+
+\pagebreak
+
+## Comparative analysis of fold change (q-value < .001)
+
+### Human versus Chimp and Rhesus
+
+```{r,echo=FALSE,eval=T,fig.height=4.8,fig.width=4.8}
+mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp","rhesus")
+
+#par(mfrow=c(2,1),mar=c(2,4,4,1))
+xy=cbind(mat[[1]]-mat[[3]],mat[[1]]-mat[[2]])
+dcols=densCols(xy,nbin=1000)
+plot(xy,pch="",xlim=c(-12,12),ylim=c(-12,12),axes=F,xlab="",
+     ylab="")
+points(x=xy[ribo.Res.hr.nos$qval<.001,1],y=xy[ribo.Res.hr.nos$qval<.001,2],col="cyan",cex=.7)
+points(x=xy[ribo.Res.hc.nos$qval<.001,1],y=xy[ribo.Res.hc.nos$qval<.001,2],col="green",cex=.7)
+points(x=xy[ribo.Res.hc.nos$qval<.001 & ribo.Res.hr.nos$qval < .001,1],
+       y=xy[ribo.Res.hc.nos$qval<.001 & ribo.Res.hr.nos$qval < .001,2],col="red",cex=.7)
+axis(1,at=seq(-12,12,by=5));axis(2,at=seq(-12,12,5))
+title(xlab="log2 Human-to-Rhesus FC",ylab="log2 Human-to-Chimp FC",line=2.5)
+title(main="",line=1)
+legend("topright",
+ legend=c(paste("Sig. Human-to-Chimp fold change (",sum(ribo.Res.hc.nos$qval<.001),"genes )"),
+ paste("Sig. Human-to-Rhesus fold change (",sum(ribo.Res.hr.nos$qval<.001),"genes )"),
+ paste("Both sig. (",sum(ribo.Res.hr.nos$qval<.001 & ribo.Res.hc.nos$qval<.001),"genes )")),
+       pch=16,col=c("green","cyan","red"),horiz=F,cex=.6)
+```
+
+
+
+```{r,echo=FALSE,eval=F,fig.height=4.8,fig.width=4.8}
+### Chimp versus Humand and Rhesus
+mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp","rhesus")
+
+#par(mfrow=c(2,1),mar=c(2,4,4,1))
+xy=cbind(mat[[2]]-mat[[3]],mat[[2]]-mat[[1]])
+dcols=densCols(xy,nbin=1000)
+plot(xy,pch="",xlim=c(-12,12),ylim=c(-12,12),axes=F,xlab="",
+     ylab="")
+points(x=xy[ribo.Res.hc.nos$qval<.001,1],y=xy[ribo.Res.hc.nos$qval<.001,2],col="green",cex=.7)
+points(x=xy[ribo.Res.rc.nos$qval<.001,1],y=xy[ribo.Res.rc.nos$qval<.001,2],col="cyan",cex=.7)
+points(x=xy[ribo.Res.hc.nos$qval<.001 & ribo.Res.rc.nos$qval < .001,1],
+       y=xy[ribo.Res.hc.nos$qval<.001 & ribo.Res.rc.nos$qval < .001,2],col="red",cex=.7)
+axis(1,at=seq(-12,12,by=5));axis(2,at=seq(-12,12,5))
+title(ylab="log2 Chimp-to-Human FC",xlab="log2 Chimp-to-Rhesus FC",line=2.5)
+title(main="",line=1)
+legend("topright",
+ legend=c(paste("Sig. Chimp-to-Human fold change (",sum(ribo.Res.hc.nos$qval<.001),"genes )"),
+ paste("Sig. Chimp-to-Rhesus fold change (",sum(ribo.Res.rc.nos$qval<.001),"genes )"),
+ paste("Both sig. (",sum(ribo.Res.hc.nos$qval<.001 & ribo.Res.rc.nos$qval<.001),"genes )")),
+       pch=16,col=c("cyan","green","red"),horiz=F,cex=.6)
+```
+
+
+
+\pagebreak
+
+# Compare DE results of standardized RPKM values and unstandardized RPKM values
+
+
+## Human versus Chimp: Overlap of significant genes at q-value < .001
+
+### All signficant genes
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+#### All significant genes
+# venn(list(RPKM=ribo.Res.hc$ENSGID[ribo.Res.hc$qval<.001],
+#           rawRPKM=ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval<.001]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.hc$qval<.001,
+          rawRPKM=ribo.Res.hc.nos[ii.both,3]<.001)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp","rhesus")
+
+fc.hc = mat[[1]]-mat[[2]]
+fc.hr = mat[[1]]-mat[[3]]
+fc.rc = mat[[2]]-mat[[3]]
+
+
+mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.ribo.rpkm.nos.q$species==c("human","chimp","rhesus")[i]
+  emat = exprs(eSet.ribo.rpkm.nos.q)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp","rhesus")
+
+fc.nos.hc = mat[[1]]-mat[[2]]
+fc.nos.hr = mat[[1]]-mat[[3]]
+fc.nos.rc = mat[[2]]-mat[[3]]
+```
+
+
+
+### Signficant Human > Chimp
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.hc$ENSGID[ribo.Res.hc$qval < .001 & fc.hc > 0],
+#  rawRPKM=ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval < .001 & fc.nos.hc > 0]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.hc$qval < .001 & fc.hc > 0,
+   rawRPKM=ribo.Res.hc.nos[ii.both,]$qval < .001 & fc.nos.hc[ii.both] > 0)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+### Signficant Human < Chimp
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.hc$ENSGID[ribo.Res.hc$qval < .001 & fc.hc < 0],
+#  rawRPKM=ribo.Res.hc.nos$ENSGID[ribo.Res.hc.nos$qval < .001 & fc.nos.hc < 0]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.hc$qval < .001 & fc.hc < 0,
+   rawRPKM=ribo.Res.hc.nos[ii.both,]$qval < .001 & fc.nos.hc[ii.both] < 0)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+\pagebreak
+
+## Human versus Rhesus: Overlap of significant genes at q-value < .001 
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.hr$ENSGID[ribo.Res.hr$qval<.001],
+#           rawRPKM=ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval<.001]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.hr$qval<.001,
+          rawRPKM=ribo.Res.hr.nos[ii.both,]$qval<.001)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+
+### Signficant Genes with Human > Rhesus
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.hr$ENSGID[ribo.Res.hr$qval < .001 & fc.hr > 0],
+#  rawRPKM=ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval < .001 & fc.nos.hr > 0]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.hr$qval < .001 & fc.hr > 0,
+   rawRPKM=ribo.Res.hr.nos[ii.both,]$qval < .001 & fc.nos.hr[ii.both] > 0)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+### Signficant Genes with Human < Rhesus
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.hr$ENSGID[ribo.Res.hr$qval < .001 & fc.hr < 0],
+#  rawRPKM=ribo.Res.hr.nos$ENSGID[ribo.Res.hr.nos$qval < .001 & fc.nos.hr < 0]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.hr$qval < .001 & fc.hr < 0,
+   rawRPKM=ribo.Res.hr.nos[ii.both,]$qval < .001 & fc.nos.hr[ii.both] < 0)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+
+
+\pagebreak
+
+## Chimp versus Rhesus: Overlap of significant genes at q-value < .001
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# source(file.path(codedir,"multipleVenns.r"))
+# venn(list(RPKM=ribo.Res.rc$ENSGID[ribo.Res.rc$qval<.001],
+#           rawRPKM=ribo.Res.rc.nos$ENSGID[ribo.Res.rc.nos$qval<.001]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.rc$qval<.001,
+          rawRPKM=ribo.Res.rc.nos[ii.both,]$qval<.001)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+
+### Signficant Genes with Chimp > Rhesus
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.rc$ENSGID[ribo.Res.rc$qval < .001 & fc.rc > 0],
+#  rawRPKM=ribo.Res.rc.nos$ENSGID[ribo.Res.rc.nos$qval < .001 & fc.nos.rc > 0]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.rc$qval < .001 & fc.rc > 0,
+   rawRPKM=ribo.Res.rc.nos[ii.both,]$qval < .001 & fc.nos.rc[ii.both] > 0)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+### Signficant Genes with Chimp < Rhesus
+
+```{r,eval=T,echo=F,message=FALSE,warning=FALSE}
+# venn(list(RPKM=ribo.Res.rc$ENSGID[ribo.Res.rc$qval < .001 & fc.rc < 0],
+#  rawRPKM=ribo.Res.rc.nos$ENSGID[ribo.Res.rc.nos$qval < .001 & fc.nos.rc < 0]))
+ii.both = match(ribo.Res.hc$ENSGID,ribo.Res.hc.nos$ENSGID)
+mat=data.frame(RPKM=ribo.Res.rc$qval < .001 & fc.rc < 0,
+   rawRPKM=ribo.Res.rc.nos[ii.both,]$qval < .001 & fc.nos.rc[ii.both] < 0)
+plot(0,pch="",xlim=c(0,13),ylim=c(0,5),axes=F,xlab="",ylab="")
+points(5,2,cex=16)
+text(4,2,label=sum(mat[,1] & !mat[,2]));text(3.5,2,label=colnames(mat)[1],pos=2)
+points(6,2,cex=16)
+text(7,2,label=sum(mat[,2] & !mat[,1]));text(7.5,2,label=colnames(mat)[2],pos=4)
+text(5.5,2,label=sum(mat[,2] & mat[,1]))
+```
+
+

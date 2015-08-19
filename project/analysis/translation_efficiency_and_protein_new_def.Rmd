@@ -31,8 +31,6 @@ opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
 ```
 
 
-Goal
-=====
 
 
 ```{r load_packages}
@@ -65,6 +63,9 @@ load(file.path(rdadir,"rnapro.rda"))
 ## load LRT results of Ribo vs. RNA divergence
 load(file.path(rdadir,"TEnew.rda"))
 
+## load LRT results of DE analysis
+load(file.path(rdadir,"DE.rda"))
+
 ## Compute fold changes based on un-normalized data
 ## from the object eSetRRP.log2 in eSetRRP.rda
 load(file.path(rdadir,"eSetRRP.rda"))
@@ -91,15 +92,21 @@ xy.riborna = data.frame(rna=dmat_unnormed$rna,
                         ribo=dmat_unnormed$ribo)
 xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
                         pro=dmat_unnormed$pro)
+```
 
-
-## Definition of enhanced, attenuated, and null divergence in this document
 
 ## RNA-Ribo
 
+Only include genes that are sig. different between species in 
+translation efficiency
+
+```{r}
 ii_sig_TE <- res.riborna$int.qval < .01
+```
+
 ii_sig_RNA_DE <- rnaRes.Q$qval < .01
 ii_sig_Ribo_DE <- riboRes.Q$qval < .01
+```
 
 # sig. translation efficiency,
 # no sig. DE at RNA level & no sig. DE at Ribo level
@@ -159,7 +166,7 @@ sum(ii_proGTrna & ii_riboGTrna)/sum(ii_riboGTrna)
 ## Tests
 
 
-> McNemar's chi-squared test to compare the proportion of genes with 
+McNemar's chi-squared test to compare the proportion of genes with 
 attenuated translation versus enhanced translation (relative to RNA level)
 
 
@@ -176,329 +183,23 @@ mcnemar.test(mat_riborna)
 ```
 
 
-> Fisher's exact test. The null hypothesis is 
-that there is no association between translation efficiency divergence and RNA-protein divergence.
+Two-proportion z-test.
 
 
 ```{r}
+PropTest(57/119, 1/22, N1 = 119, N = 22)
+
 ## Make a data matrix for Fisher's exact test input
 mat_fish <- 
   matrix(0, 2, 2, 
   dimnames = list( rna_ribo = c("Attenuation", "Enhancement"),                              rna_pro = c("Attenuation", "Enhancement") ) )
-mat_fish[1,1] <- sum(ii_TE_4*ii_rnaGTpro)
-mat_fish[2,2] <- sum(ii_riboGTrna*ii_proGTrna)
-mat_fish[1,2] <- sum(ii_rnaGTribo*ii_proGTrna)
-mat_fish[2,1] <- sum(ii_riboGTrna*ii_rnaGTpro)
+mat_fish[1,1] <- sum(ii_rnaGTribo & ii_rnaGTpro)
+mat_fish[2,2] <- sum(ii_riboGTrna & ii_proGTrna)
+mat_fish[1,2] <- sum(ii_rnaGTribo & ii_proGTrna)
+mat_fish[2,1] <- sum(ii_riboGTrna & ii_rnaGTpro)
 
-## Fisher's exact test
-fisher.test(mat_fish, alternative = "two.sided")
+## Two-proportion z-test
+PropTest(57/119, 1/22, N1 = 119, N = 22)
 ```
 
-
-## Figures
-
-
-> RNA-Ribo per gene fold change estimates for genes divergent in translation efficiency
-
-
-```{r, fig.width = 2.5, fig.height=.5}
-# pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
-#               "ribornaDD_direction_legend.pdf"), width=2.5,height=.5)
-par(mar=c(0,0,0,0))
-plot(.1, 1, xlim=c(0,2.5),ylim=c(0,2),axes=F,
-     pch=18, col =brocolors("crayons")["Scarlet"],
-     cex = 1.5)
-points(.1, .5, col = brocolors("crayons")["Violet Blue"], pch = 20, cex = 1.5 )
-text(.2,1,"Divergence enhanced at translation", cex = .6, adj = 0)
-text(.2,.5,"Divergence attenuated at translation", cex = .6, adj = 0)
-#dev.off()
-```
-
-
-```{r, fig.height=5, fig.width=5}
-require(Humanzee)
-#pdf(file.path(figdir, "ribornaDD_direction.pdf"), width = 2, height = 2)
-plot_divergence_scatter(xy.riborna, 
-                      ind_points1 = ii_riboGTrna,
-                      ind_points2 = ii_rnaGTribo,
-                      xlab = "log2 (human/chimp) mRNA", 
-                      ylab = "log2 (human/chimmp) \n Ribosome occupancy", 
-                      col_bkpoints = brocolors("crayons")["Manatee"],
-                      lwd_bkpoints = .1,
-                      pch_bkpoints = "",
-                      col_points1 = brocolors("crayons")["Scarlet"],
-                      col_points2 = brocolors("crayons")["Violet Blue"],
-                      col_diag = "grey", 
-                      cex_bkpoints = .4,
-                      cex_points1 = .6,
-                      cex_points2 = .5,
-                      pch_points1 = 18,
-                      pch_points2 = 20,
-                      col_hline = brocolors("crayons")["Shamrock"], 
-                      col_vline = brocolors("crayons")["Shamrock"], 
-                      lwd_hline = .3, cex.lab = .7,
-                      lwd_vline = .3, cex.axis = .5,
-                      xlim = c(-5, 8), ylim = c(-5, 8) )
-```
-
-
-> RNA-Protein per gene fold change estimates for genes divergent in translation efficiency
-
-
-```{r, fig.height = 5, fig.width = 5}
-plot_divergence_scatter(xy.rnapro, 
-                      ind_points1 = ii_riboGTrna,
-                      ind_points2 = ii_rnaGTribo,
-                      xlab = "log2 (human/chimp) mRNA", 
-                      ylab = "log2 (human/chimp) Protein", 
-                      col_bkpoints = brocolors("crayons")["Manatee"],
-                      lwd_bkpoints = .1,
-                      pch_bkpoints = "",
-                      col_points1 = alpha(brocolors("crayons")["Scarlet"],1),
-                      col_points2 = alpha(brocolors("crayons")["Violet Blue"],1),
-                      col_diag = "grey", 
-                      cex_bkpoints = .4,
-                      cex_points1 = .6,
-                      cex_points2 = .5,
-                      pch_points1 = 18,
-                      pch_points2 = 20,
-                      col_hline = brocolors("crayons")["Shamrock"], 
-                      col_vline = brocolors("crayons")["Shamrock"], 
-                      lwd_hline = .3, cex.lab = .7,
-                      lwd_vline = .3, cex.axis = .5,
-                      xlim = c(-5, 8), ylim = c(-5, 8) )
-#dev.off()
-```
-
-
-## Compare between different divergence definition
-
-
-```{r}
-
-## Define divergence considering directionality
-
-# load LRT results
-load(file.path(rdadir, "TEnew.rda"))
-
-# Attenuated divergence
-ii_rnaGTribo <- 
-  res.riborna$int.qval<.01 & ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo)) | (xy.riborna$rna * xy.riborna$ribo < 0) )
-
-# Enhanced divegence
-ii_riboGTrna <-
-  res.riborna$int.qval<.01 & ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-
-
-## Define divergence considering only magnitude of the effect size
-
-# load LRT results
-load(file.path(rdadir, "TEnew.rda"))
-
-# Attenuated divergence
-ii_rnaGTribo_0 <- 
-  res.riborna$int.qval<.01 & (abs(xy.riborna$rna) > abs(xy.riborna$ribo) )
-
-# Enhanced divegence
-ii_riboGTrna_0 <-
-  res.riborna$int.qval<.01 & (abs(xy.riborna$ribo) > abs(xy.riborna$rna) )
-
-
-## Compare number of genes in attenuation/enhancement in the two 
-## definitions
-table(ii_rnaGTribo_0[res.riborna$int.qval < .01], 
-      ii_rnaGTribo[res.riborna$int.qval < .01] )
-table(ii_riboGTrna_0[res.riborna$int.qval < .01], 
-      ii_riboGTrna[res.riborna$int.qval < .01])
-```
-
-
-> Attenuated: 188 to 369; Enhanced: 290 to 109
-
-181 from not attenuated to attenuated
-188 from not enhanced to enhanced
-
-attenuated: 188; enhanced: 290
-
-
-
-## Sanity check
-
-
-> Check on the number of genes in RNA-Ribo attenuation and enhancement. 
-There are a lot more genes in the attenuation category than in the 
-enhancement category. Let's compute the number of genes in Ribo-RNA 
-attenuation and enhancement. 
-
-
-```{r}
-## Compute attenuation/enhancement of RNA relative to Ribo
-
-# Attenuated divergence
-ii_riboGTrna_rna_ref <- 
-  res.riborna$int.qval<.01 & ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) | (xy.riborna$rna * xy.riborna$ribo < 0) )
-
-# Enhanced divegence
-ii_rnaGTribo_rna_ref <-
-  res.riborna$int.qval<.01 & ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo)) & (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-
-# Null divergence
-ii_riboNULLrna_rna_ref <- (!(ii_riboGTrna_rna_ref|ii_rnaGTribo_rna_ref))
-
-mat_riborna_rna_ref <- 
-  matrix(0, 2, 1, 
-  dimnames = list(row = c("# genes attenuated at RNA relative to Ribo",
-                          "# genes enhanced at RNA relative to Ribo") ) )
-
-mat_riborna_rna_ref[1,1] <- sum(ii_riboGTrna_rna_ref)
-mat_riborna_rna_ref[2,1] <- sum(ii_rnaGTribo_rna_ref)
-
-kable(mat_riborna_rna_ref)
-```
-
-
-> The number of genes in attenuation/enhancement divergence when using Ribo
-as the reference phenotype did not flip when changing to using RNA as the
-reference phenotype. 
-
-
-```{r, bootstrap.show.code = TRUE}
-## Of the genes classifed as attenuated at the Ribo level relative to 
-## the RNA level, consider their category of divergence when using RNA as the 
-## reference phenotype, i.e., attenuation or enhancement at the RNA level
-## relative to the Ribo level:
-a <- ii_riboGTrna_rna_ref[ii_rnaGTribo]
-b <- ii_rnaGTribo_rna_ref[ii_rnaGTribo]
-table(a,b)
-
-## Of the genes classifed as enhanced at the Ribo level relative to 
-## the RNA level, consider their category of divergence when using RNA as the 
-## reference phenotype, i.e., attenuation or enhancement at the RNA level
-## relative to the Ribo level:
-a <- ii_riboGTrna_rna_ref[ii_riboGTrna]
-b <- ii_rnaGTribo_rna_ref[ii_riboGTrna]
-table(a,b)
-
-## Of the genes that did not change direction of divergence when we change
-## the reference phenotype from Ribo to RNA (these are classified as 
-## attenuation in both), consider how many of them fall into the category of 
-## genes of opposite direction of divergence at RNA and Ribo level:
-c <- res.riborna$int.qval<.01 & (xy.riborna$rna * xy.riborna$ribo < 0)
-d <- ii_riboGTrna_rna_ref*ii_rnaGTribo
-table(c[which(d==1)])
-```      
-
-
-
-
-Rhesus vs. Human
-====================
-
-
-
-```{r, eval = F}
-## Set working directories 
-dir <- "../"
-figdir <- file.path(dir,"figures")
-rdadir <- file.path(dir,"rdas")
-datadir <- file.path(dir, "data")
-
-## Use broman package for colors
-require(broman)
-crayon <- brocolors("crayons")
-
-## load LRT results of RNA vs. Protein divergence
-load(file.path(rdadir,"rnapro.rda"))
-
-## load LRT results of Ribo vs. RNA divergence
-load(file.path(rdadir,"TEnew.rda"))
-
-## Compute fold changes based on un-normalized data
-## from the object eSetRRP.log2 in eSetRRP.rda
-load(file.path(rdadir,"eSetRRP.rda"))
-eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
-fc.mat=lapply(seq_along(c("human","chimp")), function(i) {
-  ii = eSet.temp$species==c("human","chimp")[i]
-  eSet.tt = eSet.temp[,ii]
-  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
-    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
-    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
-  })
-  emat=do.call(cbind,emat)
-  colnames(emat)=c("ribo","rna","protein")
-  return(data.frame(emat))
-})
-names(fc.mat)=c("human","chimp")
-dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
-                           rna=fc.mat$human$rna-fc.mat$chimp$rna,
-                           pro=fc.mat$human$protein-fc.mat$chimp$protein)
-
-xy.rnapro = data.frame(rna=dmat_unnormed$rna,
-                       pro=dmat_unnormed$pro)
-xy.riborna = data.frame(rna=dmat_unnormed$rna,
-                        ribo=dmat_unnormed$ribo)
-xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
-                        pro=dmat_unnormed$pro)
-
-
-## Definition of enhanced, attenuated, and null divergence in this document
-
-## RNA-Protein
-# Attenuated divergence
-ii_rnaGTpro = res.rnapro$int.qval<.01 & ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro)) | (xy.rnapro$rna * xy.rnapro$pro < 0) )
-# Enhanced divegence
-ii_proGTrna = res.rnapro$int.qval<.01 & ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
-# Null divergence
-ii_proNULLrna = (!(ii_rnaGTpro|ii_proGTrna))
-
-## RNA-Ribo
-# Attenuated divergence
-ii_rnaGTribo = res.riborna$int.qval<.01 & ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo)) | (xy.riborna$rna * xy.riborna$ribo < 0) )
-# Enhanced divegence
-ii_riboGTrna = res.riborna$int.qval<.01 & ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-# Null divergence
-ii_riboNULLrna = (!(ii_rnaGTribo|ii_riboGTrna))
-
-
-sum(ii_rnaGTribo)
-sum(ii_rnaGTpro*ii_rnaGTribo)/sum(ii_rnaGTribo)
-
-sum(ii_riboGTrna)
-sum(ii_proGTrna*ii_riboGTrna)/sum(ii_riboGTrna)
-
-## McNemar's chi-squared test to compare
-## the proportion of genes with 
-## attenuated translation versus enhanced
-## translation (relative to RNA level)
-
-mat_riborna <- matrix(0, 2, 2,
-                      dimnames = list(attenuation = c("yes", "no"),
-                                      enhancement = c("yes", "no") ) )
-mat_riborna[1,1] <- sum( (ii_riboGTrna) & (ii_rnaGTribo) )
-mat_riborna[2,2] <- sum( !(ii_riboGTrna) & !(ii_rnaGTribo) )
-mat_riborna[1,2] <- sum( (ii_riboGTrna) & !(ii_rnaGTribo) )
-mat_riborna[2,1] <-  sum( !(ii_riboGTrna) & (ii_rnaGTribo) )
-
-mcnemar.test(mat_riborna)
-
-
-
-
-## Make a data matrix for Fisher's exact test input
-## The null hypothesis is that there is no association
-## between translation efficiency divergence and 
-## RNA-protein divergence
-
-mat_fish <- matrix(0, 2, 2, 
-                   dimnames = list( rna_ribo = c("Attenuation", "Enhancement"),
-                                    rna_pro = c("Attenuation", "Enhancement") ) )
-mat_fish[1,1] <- sum(ii_rnaGTribo*ii_rnaGTpro)
-mat_fish[2,2] <- sum(ii_riboGTrna*ii_proGTrna)
-mat_fish[1,2] <- sum(ii_rnaGTribo*ii_proGTrna)
-mat_fish[2,1] <- sum(ii_riboGTrna*ii_rnaGTpro)
-
-## Fisher's exact test
-fisher.test(mat_fish, alternative = "two.sided")
-
-```
 

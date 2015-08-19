@@ -80,39 +80,18 @@ xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
 
 ## RNA-Ribo
 
-ii_sig_TE <- res.riborna$int.qval < .01
-ii_sig_RNA_DE <- rnaRes.Q$qval < .01
-ii_sig_Ribo_DE <- riboRes.Q$qval < .01
-
-# sig. translation efficiency,
-# no sig. DE at RNA level & no sig. DE at Ribo level
-ii_TE_1 <- ii_sig_TE & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
-sum(ii_TE_1)
-
-# sig. translation efficiency, 
-# no sig. DE at RNA level but sig. DE at Ribo level
-# enhanced divergence
-ii_TE_2 <- (ii_sig_TE) & !ii_sig_RNA_DE & ii_sig_Ribo_DE
-sum(ii_TE_2)
 
 
-# sig. translation efficiency, 
-# sig. DE at RNA level
-# enhanced divergence
-ii_TE_3 <- 
-  (ii_sig_TE) & ii_sig_RNA_DE & 
-        ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
-        (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-sum(ii_TE_3)
+mat_riborna <- matrix(0, 2, 2,
+                      dimnames = list(attenuation = c("yes", "no"),
+                                      enhancement = c("yes", "no") ) )
+mat_riborna[1,1] <- sum( (ii_TE_4[ii_sig_TE]) & (ii_TE_3[ii_sig_TE]) )
+mat_riborna[1,2] <- sum( (ii_TE_4[ii_sig_TE]) & !(ii_TE_3[ii_sig_TE]) )
+mat_riborna[2,2] <- sum( !(ii_TE_4[ii_sig_TE]) & !(ii_TE_3[ii_sig_TE]) )
+mat_riborna[2,1] <-  sum( !(ii_TE_4[ii_sig_TE]) & (ii_TE_3[ii_sig_TE]) )
 
-# sig. translation efficiency, 
-# no sig. DE at RNA level but sig. DE at Ribo level
-# attenuated divergence
-ii_TE_4 <- 
-  (ii_sig_TE) & ii_sig_RNA_DE & 
-        ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
-        (xy.riborna$rna * xy.riborna$ribo < 0) ) 
-sum(ii_TE_4)
+mcnemar.test(mat_riborna)
+
 
 
 par(mfrow=c(2,2))
