@@ -6,14 +6,14 @@ tagline: A comparative study of translation divergence
 
 #### Preprocessing
 
-- [Normalization]()
-- [Filtering]()
+- [Normalization](project/analysis/upcoming.html)
+- [Filtering](project/analysis/upcoming.html)
 
 
 #### Differential expression analysis
 
 - [Ribosome profiling](project/analysis/DE-ribo.html)
-- [RNA and mass spectrometry](project/analysis/DE_rna_pro.html)
+- [RNA and mass spectrometry](project/analysis/upcoming.html)
 - [For the 3,188 genes quantified in all 3 phenotypes](project/analysis/DE_all_phenotypes.html)
 
 
