@@ -76,6 +76,9 @@ load(file.path(rdadir,"rnapro.rda"))
 ## load LRT results of Ribo vs. RNA divergence
 load(file.path(rdadir,"TEnew.rda"))
 
+## load DE results of all phenotypes
+load(file.path(rdadir,"DE.rda"))
+
 ## Compute fold changes based on un-normalized data
 ## from the object eSetRRP.log2 in eSetRRP.rda
 load(file.path(rdadir,"eSetRRP.rda"))

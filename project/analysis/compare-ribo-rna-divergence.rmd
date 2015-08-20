@@ -63,7 +63,7 @@ Human versus Chimp
 ==================
 
 
-> We used a likelihood ratio test to compare species divergence 
+We used a likelihood ratio test to compare species divergence 
 at the Ribo level versus at the RNA level.
 
 
@@ -83,7 +83,7 @@ save(res.riborna,file=file.path(rdadir,"TEnew.rda"))
 ```
 
 
-> The genes with significant interaction effect at FDR < .01 are identified
+The genes with significant interaction effect at FDR < .01 are considered
 as significant in species difference between RNA and Ribo, or equivalently,
 species difference in translation efficiency. 
 
@@ -144,11 +144,11 @@ data.frame(human_rhesus = sum(res.riborna_human_rhesus$int.qval < .01),
 QC checks on the results above
 =================================
 
-> The above results used a subset of RNA and Ribo data that was 
+The above results used a subset of RNA and Ribo data that was 
 already quantile-normalized. Therefore, the distribution of these
 3,188 genes are not exactly the same across the samples. 
 
-> We quantile-normalized sequencing data of 3,188 genes for each of the
+We quantile-normalized sequencing data of 3,188 genes for each of the
 data types across the three species. 
 
 
@@ -177,6 +177,7 @@ eSetRRP.RP.Q.log2.post <- ExpressionSet(assayData = emat,
                        experimentData=experimentData(eSetRRP.RP))
 featureData(eSetRRP.RP.Q.log2.post) <- featureData(eSetRRP.RP.Q.log2.post)     
 ```
+
 
 ## Inter-species comparisons
 
@@ -228,8 +229,8 @@ data.frame(human_chimp = sum(res.riborna.post_human_chimp$int.qval < .01),
 
 
 
-SessionInfo
-===========
+Session information
+====================
 
 ```{r}
 sessionInfo()

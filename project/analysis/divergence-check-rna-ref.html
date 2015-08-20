@@ -862,24 +862,39 @@
 </head>
 <body>
 <title>
-Translation efficiency and protein divergence
+Sanity check on TE divergence results
 </title>
 <div id="wrap">
 <div class="container">
 <div class="row row-offcanvas row-offcanvas-right">
 <div class="contents col-xs-12 col-md-10">
-<h1>Translation efficiency and protein divergence</h1>
+<h1 id="checking-te-divergence-results">Checking TE divergence results</h1>
 <div class="row">
 Author: <a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>
 </div>
 <div class="row">
-Last updated: 2015-08-18 18:24:56
+Last updated: 2015-08-20 13:23:27
 </div>
+<p><a href="divergence-check-rna-ref.Rmd">view source</a></p>
+<p>As a sanity check of our new definition of attenuation and enhancement of translation divergence relative to transcript divergence, we applied the same steps to compute the number of genes that are attenuated or enhanced at the transcript level compared to the translation level. We expect that the ratio of the number of genes that fall in to each category in transcript attenuation or enhancement would the inverse of the ratio of the number of genes that fall into each category in translation attenuation or attenuation.</p>
+<h1 id="definitions">Definitions</h1>
+<p>The set of genes that are significant in inter-species difference of translation efficiency can be divided into two categories, and within each of the categories, the genes can further be divided into two subcategories as follows</p>
+<ol style="list-style-type: decimal">
+<li><p>No sig. inter-species difference in Ribo</p>
+<p>1.1. No sig. inter-species difference in RNA</p>
+<p>1.2. Sig. inter-species difference in RNA</p></li>
+<li><p>Sig. inter-species difference in Ribo</p>
+<p>2.1. ( abs(inter-species Ribo FC) &gt; abs(inter-species RNA FC) ) OR ( inter-species RNA FC and inter-species Ribo FC are of the opposite direction) - <strong>Attenuation at the RNA level</strong></p>
+<p>2.2. ( abs(inter-species Ribo FC) &lt; abs(inter-species RNA FC) ) AND ( inter-species RNA FC and inter-species Ribo FC are of the same direction) - <strong>Enhancement at the RNA level</strong></p></li>
+</ol>
 <div class="row">
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-up"></span> R source
-</button>
-<pre style="display:none"><code class="source r">library(Biobase)
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">library(Biobase)
 
 ## Set working directories 
 dir <- "../"
@@ -895,11 +910,15 @@ crayon <- brocolors("crayons")
 require(devtools)
 require(Humanzee)</code></pre>
 </div>
-<h1>Human vs. Chimpanzee</h1>
+</div>
+<p>Load rdas of LRT results and compute fold change estimates using RPKM values before normalization. Note that RNA and Ribo data were quantile-normalized separately.</p>
 <div class="row">
-<button class="source R toggle btn btn-xs btn-primary">
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
 <span class="glyphicon glyphicon-chevron-down"></span> R source
-</button>
+</h5>
+</div>
 <pre style=""><code class="source r">## load LRT results of RNA vs. Protein divergence
 load(file.path(rdadir,"rnapro.rda"))
 
@@ -908,6 +927,7 @@ load(file.path(rdadir,"TEnew.rda"))
 
 ## load LRT results of DE analysis
 load(file.path(rdadir,"DE.rda"))
+
 
 ## Compute fold changes based on un-normalized data
 ## from the object eSetRRP.log2 in eSetRRP.rda
@@ -934,169 +954,123 @@ xy.rnapro = data.frame(rna=dmat_unnormed$rna,
 xy.riborna = data.frame(rna=dmat_unnormed$rna,
                         ribo=dmat_unnormed$ribo)
 xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
-                        pro=dmat_unnormed$pro)
-
-
-## Definition of enhanced, attenuated, and null divergence in this document
-
-## RNA-Ribo
-
+                        pro=dmat_unnormed$pro)</code></pre>
+</div>
+</div>
+<p>Define subsets of genes at FDR &lt; .01.</p>
+<div class="row">
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">## Genes with sig. human/chimp difference in levels of translation efficiency 
 ii_sig_TE <- res.riborna$int.qval < .01
+
+## Genes with sig. human/chimp difference in RNA levels 
 ii_sig_RNA_DE <- rnaRes.Q$qval < .01
+
+## Genes with sig. human/chimp difference in Ribo levels
 ii_sig_Ribo_DE <- riboRes.Q$qval < .01
 
-# sig. translation efficiency,
-# no sig. DE at RNA level & no sig. DE at Ribo level
-ii_TE_1 <- ii_sig_TE & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
-sum(ii_TE_1)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## [1] 115
-</code></pre>
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</button>
-<pre style=""><code class="source r"># sig. translation efficiency, 
-# no sig. DE at RNA level but sig. DE at Ribo level
-ii_TE_2 <- (ii_sig_TE) & !ii_sig_RNA_DE & ii_sig_Ribo_DE
-sum(ii_TE_2)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## [1] 222
-</code></pre>
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</button>
-<pre style=""><code class="source r"># sig. translation efficiency, 
-# sig. DE at RNA level
-# Enhanced divergence
-ii_riboGTrna <- 
-  (ii_sig_TE) & ii_sig_RNA_DE & 
-        ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
-        (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-sum(ii_riboGTrna)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## [1] 22
-</code></pre>
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</button>
-<pre style=""><code class="source r"># sig. translation efficiency, 
-# no sig. DE at RNA level but sig. DE at Ribo level
-# Attenuated divergence
-ii_rnaGTribo <- 
-  (ii_sig_TE) & ii_sig_RNA_DE & 
-        ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
-        (xy.riborna$rna * xy.riborna$ribo < 0) ) 
-sum(ii_rnaGTribo)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## [1] 119
-</code></pre>
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</button>
-<pre style=""><code class="source r">## RNA-Protein
 
-# Attenuated divergence
-ii_rnaGTpro <- 
-  (res.rnapro$int.qval < .01) & ii_sig_RNA_DE & 
-    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
-    (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
-
-# Enhanced divegence
-ii_proGTrna <- 
-  (res.rnapro$int.qval < .01) & ii_sig_RNA_DE & 
-        ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
-        (xy.rnapro$rna * xy.rnapro$rna > 0 ) )
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. translation efficiency, AND
+## b) Sig. DE at Ribo level, AND
+## c) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
+iicheck_rnaGTribo <- 
+    (ii_sig_TE) & ii_sig_Ribo_DE & 
+    ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo)) & 
+      (xy.riborna$rna * xy.riborna$ribo > 0 ) )
 
 
-# Prop. of RNA-protein attenuated genes among RNA-Ribo attenuated genes
-sum(ii_rnaGTpro & ii_rnaGTribo)/sum(ii_rnaGTribo)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. translation efficiency, AND
+## b) Sig. DE at Ribo level, AND 
+## c) ( abs(Ribo FC) > abs(RNA FC) ) AND ( RNA FC * Ribo FC < 0)
+iicheck_riboGTrna <- 
+    (ii_sig_TE) & ii_sig_Ribo_DE & 
+    ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna) ) | 
+      (xy.riborna$rna * xy.riborna$ribo < 0) ) 
+
+
+## Category 3, Pseudo enhacement, criteria are as follows
+## a) Sig. translation efficiency, AND
+## b) No sig. DE at Ribo level, AND 
+## c) Sig. DE at RNA level
+iicheck_null_rnaGTribo <- 
+    ii_sig_TE & !ii_sig_Ribo_DE & ii_sig_RNA_DE
+
+
+## Category 4, Null divergence, criteria are as follows
+## a) Sig. translation efficiency, AND
+## b) No sig. DE at Ribo level, AND 
+## c) No sig. DE at RNA level
+iicheck_null_rnaNULLribo <- 
+    ii_sig_TE & !ii_sig_Ribo_DE & !ii_sig_RNA_DE
+
+
+RNA_refmat <- rbind.data.frame(attenuated = sum(iicheck_riboGTrna),
+                               enhanced = sum(iicheck_rnaGTribo),
+                               null_enhanced = sum(iicheck_null_rnaGTribo),
+                               null = sum(iicheck_null_rnaNULLribo) )
+colnames(RNA_refmat) <- "# genes"
+RNA_refmat</code></pre>
+</div>
+<div class="panel panel-success">
+<div class="output R panel-heading toggle">
+<h5 class="panel-title">
 <span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## [1] 0.4789916
-</code></pre>
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</button>
-<pre style=""><code class="source r"># Prop. of RNA-protein enhanced genes among RNA-Ribo enhanced genes
-sum(ii_proGTrna & ii_riboGTrna)/sum(ii_riboGTrna)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## [1] 0.04545455
+</h5>
+</div>
+<pre style=""><code class="output r">##               # genes
+## attenuated        262
+## enhanced            8
+## null_enhanced      93
+## null              115
 </code></pre>
 </div>
-<h2>Tests</h2>
-<p>McNemar's chi-squared test to compare the proportion of genes with attenuated translation versus enhanced translation (relative to RNA level)</p>
+</div>
+<h1 id="session-information">Session information</h1>
 <div class="row">
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-up"></span> R source
-</button>
-<pre style="display:none"><code class="source r">mat_riborna <- matrix(0, 2, 2,
-                      dimnames = list(attenuation = c("yes", "no"),
-                                      enhancement = c("yes", "no") ) )
-mat_riborna[1,1] <- sum( (ii_riboGTrna) & (ii_rnaGTribo) )
-mat_riborna[2,2] <- sum( !(ii_riboGTrna) & !(ii_rnaGTribo) )
-mat_riborna[1,2] <- sum( (ii_riboGTrna) & !(ii_rnaGTribo) )
-mat_riborna[2,1] <-  sum( !(ii_riboGTrna) & (ii_rnaGTribo) )
-
-mcnemar.test(mat_riborna)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">sessionInfo()</code></pre>
+</div>
+<div class="panel panel-success">
+<div class="output R panel-heading toggle">
+<h5 class="panel-title">
 <span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## 
-##  McNemar's Chi-squared test with continuity correction
+</h5>
+</div>
+<pre style=""><code class="output r">## R version 3.2.1 (2015-06-18)
+## Platform: x86_64-apple-darwin13.4.0 (64-bit)
+## Running under: OS X 10.10.4 (Yosemite)
 ## 
-## data:  mat_riborna
-## McNemar's chi-squared = 65.3617, df = 1, p-value = 6.234e-16
+## locale:
+## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+## 
+## attached base packages:
+## [1] parallel  stats     graphics  grDevices utils     datasets  methods  
+## [8] base     
+## 
+## other attached packages:
+## [1] Humanzee_0.0.0.9000 devtools_1.9.0      broman_0.59-5      
+## [4] Biobase_2.28.0      BiocGenerics_0.14.0 knitr_1.11         
+## 
+## loaded via a namespace (and not attached):
+##  [1] digest_0.6.8         assertthat_0.1       knitrBootstrap_1.0.0
+##  [4] formatR_1.2          magrittr_1.5         evaluate_0.7.2      
+##  [7] stringi_0.5-5        rmarkdown_0.7        tools_3.2.1         
+## [10] stringr_1.0.0        markdown_0.7.7       yaml_2.1.13         
+## [13] memoise_0.2.1        htmltools_0.2.6
 </code></pre>
 </div>
-<p>Two-proportion z-test.</p>
-<div class="row">
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-up"></span> R source
-</button>
-<pre style="display:none"><code class="source r">PropTest(57/119, 1/22, N1 = 119, N = 22)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## $z
-## [1] 3.796361
-## 
-## $pval
-## [1] 0.0001468354
-</code></pre>
-<button class="source R toggle btn btn-xs btn-primary">
-<span class="glyphicon glyphicon-chevron-up"></span> R source
-</button>
-<pre style="display:none"><code class="source r">## Make a data matrix for Fisher's exact test input
-mat_fish <- 
-  matrix(0, 2, 2, 
-  dimnames = list( rna_ribo = c("Attenuation", "Enhancement"),                              rna_pro = c("Attenuation", "Enhancement") ) )
-mat_fish[1,1] <- sum(ii_rnaGTribo & ii_rnaGTpro)
-mat_fish[2,2] <- sum(ii_riboGTrna & ii_proGTrna)
-mat_fish[1,2] <- sum(ii_rnaGTribo & ii_proGTrna)
-mat_fish[2,1] <- sum(ii_riboGTrna & ii_rnaGTpro)
-
-## Two-proportion z-test
-PropTest(57/119, 1/22, N1 = 119, N = 22)</code></pre>
-<button class="output R toggle btn btn-xs btn-success">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</button>
-<pre style=""><code class="output r">## $z
-## [1] 3.796361
-## 
-## $pval
-## [1] 0.0001468354
-</code></pre>
 </div>
 </div>
 </div>
@@ -1135,9 +1109,6 @@ Languages
 Type
 </li>
 <li class="active">
-<a href="#" class="toggle-global warning" type="warning">warning</a>
-</li>
-<li class="active">
 <a href="#" class="toggle-global output" type="output">output</a>
 </li>
 <li>
@@ -1149,9 +1120,138 @@ Type
 <a href="#" type="figure" class="toggle-global">Figures</a>
 </li>
 </ul>
+<ul class="nav navbar-nav navbar-left">
+<li class="dropup">
+<a href="#" class="dropdown-toggle" data-toggle="dropdown">Bootstrap theme <b class="caret"></b></a>
+<ul class="dropdown-menu">
+<li class="active">
+<a class="theme-switch" title="Default" href="#">Default</a>
+</li>
+<li>
+<a class="theme-switch" title="Amelia" href="#">Amelia</a>
+</li>
+<li>
+<a class="theme-switch" title="Cerulean" href="#">Cerulean</a>
+</li>
+<li>
+<a class="theme-switch" title="Cosmo" href="#">Cosmo</a>
+</li>
+<li>
+<a class="theme-switch" title="Cyborg" href="#">Cyborg</a>
+</li>
+<li>
+<a class="theme-switch" title="Journal" href="#">Journal</a>
+</li>
+<li>
+<a class="theme-switch" title="Flatly" href="#">Flatly</a>
+</li>
+<li>
+<a class="theme-switch" title="Readable" href="#">Readable</a>
+</li>
+<li>
+<a class="theme-switch" title="Simplex" href="#">Simplex</a>
+</li>
+<li>
+<a class="theme-switch" title="Slate" href="#">Slate</a>
+</li>
+<li>
+<a class="theme-switch" title="Spacelab" href="#">Spacelab</a>
+</li>
+<li>
+<a class="theme-switch" title="United" href="#">United</a>
+</li>
+</ul>
+</li>
+</ul>
+<ul class="nav navbar-nav navbar-left">
+<li class="dropup">
+<a href="#" class="dropdown-toggle" data-toggle="dropdown">Code highlighting <b class="caret"></b></a>
+<ul class="dropdown-menu">
+<li class="active">
+<a class="highlight-switch" title="HighlightJs" href="#">HighlightJs</a>
+</li>
+<li>
+<a class="highlight-switch" title="Dark" href="#">Dark</a>
+</li>
+<li>
+<a class="highlight-switch" title="Far" href="#">Far</a>
+</li>
+<li>
+<a class="highlight-switch" title="Idea" href="#">Idea</a>
+</li>
+<li>
+<a class="highlight-switch" title="Sunburst" href="#">Sunburst</a>
+</li>
+<li>
+<a class="highlight-switch" title="Zenburn" href="#">Zenburn</a>
+</li>
+<li>
+<a class="highlight-switch" title="Visual Studio" href="#">Visual Studio</a>
+</li>
+<li>
+<a class="highlight-switch" title="Ascetic" href="#">Ascetic</a>
+</li>
+<li>
+<a class="highlight-switch" title="Magula" href="#">Magula</a>
+</li>
+<li>
+<a class="highlight-switch" title="Github" href="#">Github</a>
+</li>
+<li>
+<a class="highlight-switch" title="Google Code" href="#">Google Code</a>
+</li>
+<li>
+<a class="highlight-switch" title="Brown Paper" href="#">Brown Paper</a>
+</li>
+<li>
+<a class="highlight-switch" title="School Book" href="#">School Book</a>
+</li>
+<li>
+<a class="highlight-switch" title="IR Black" href="#">IR Black</a>
+</li>
+<li>
+<a class="highlight-switch" title="Solarized - Dark" href="#">Solarized - Dark</a>
+</li>
+<li>
+<a class="highlight-switch" title="Solarized - Light" href="#">Solarized - Light</a>
+</li>
+<li>
+<a class="highlight-switch" title="Arta" href="#">Arta</a>
+</li>
+<li>
+<a class="highlight-switch" title="Monokai" href="#">Monokai</a>
+</li>
+<li>
+<a class="highlight-switch" title="Xcode" href="#">Xcode</a>
+</li>
+<li>
+<a class="highlight-switch" title="Pojoaque" href="#">Pojoaque</a>
+</li>
+<li>
+<a class="highlight-switch" title="Rainbow" href="#">Rainbow</a>
+</li>
+<li>
+<a class="highlight-switch" title="Tomorrow" href="#">Tomorrow</a>
+</li>
+<li>
+<a class="highlight-switch" title="Tomorrow Night" href="#">Tomorrow Night</a>
+</li>
+<li>
+<a class="highlight-switch" title="Tomorrow Night Bright" href="#">Tomorrow Night Bright</a>
+</li>
+<li>
+<a class="highlight-switch" title="Tomorrow Night Blue" href="#">Tomorrow Night Blue</a>
+</li>
+<li>
+<a class="highlight-switch" title="Tomorrow Night Eighties" href="#">Tomorrow Night Eighties</a>
+</li>
+</ul>
+</li>
+</ul>
 </div>
 </div>
 </div>
+<link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" title="Default" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/amelia/bootstrap.min.css" title="Amelia" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/cerulean/bootstrap.min.css" title="Cerulean" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/cosmo/bootstrap.min.css" title="Cosmo" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/cyborg/bootstrap.min.css" title="Cyborg" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/journal/bootstrap.min.css" title="Journal" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/flatly/bootstrap.min.css" title="Flatly" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" title="Readable" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/simplex/bootstrap.min.css" title="Simplex" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/slate/bootstrap.min.css" title="Slate" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/spacelab/bootstrap.min.css" title="Spacelab" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://netdna.bootstrapcdn.com/bootswatch/3.0.0/united/bootstrap.min.css" title="United" media="screen"></link><link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/default.min.css" title="HighlightJs" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/dark.min.css" title="Dark" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/far.min.css" title="Far" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/idea.min.css" title="Idea" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/sunburst.min.css" title="Sunburst" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/zenburn.min.css" title="Zenburn" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/vs.min.css" title="Visual Studio" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/ascetic.min.css" title="Ascetic" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/magula.min.css" title="Magula" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/github.min.css" title="Github" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/googlecode.min.css" title="Google Code" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/brown_paper.min.css" title="Brown Paper" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/school_book.min.css" title="School Book" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/ir_black.min.css" title="IR Black" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/solarized_dark.min.css" title="Solarized - Dark" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/solarized_light.min.css" title="Solarized - Light" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/arta.min.css" title="Arta" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/monokai.min.css" title="Monokai" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/xcode.min.css" title="Xcode" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/pojoaque.min.css" title="Pojoaque" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/rainbow.min.css" title="Rainbow" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/tomorrow.min.css" title="Tomorrow" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/tomorrow-night.min.css" title="Tomorrow Night" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/tomorrow-night-bright.min.css" title="Tomorrow Night Bright" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/tomorrow-night-blue.min.css" title="Tomorrow Night Blue" media="screen"></link> <link rel="alternate stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/7.3/styles/tomorrow-night-eighties.min.css" title="Tomorrow Night Eighties" media="screen"></link>
 </div>
 <div id="push">
 

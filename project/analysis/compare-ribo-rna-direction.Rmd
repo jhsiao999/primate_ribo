@@ -1,0 +1,200 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "RNA vs. Ribo divergence"
+    theme: default
+    theme.chooser: TRUE
+    highlight.chooser: TRUE
+---
+
+RNA vs. Ribo divergence
+=================================
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+[view source](compare-ribo-rna-direction.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+Compute the number of genes attenuated or enhanced at the Ribo level 
+compared to the RNA level.
+
+
+Definitions
+============
+
+The set of genes that are significant in inter-species difference of 
+RNA vs. Ribo (translation efficiency) can be divided into two categories, and within each of the categories, the genes can further be divided into two subcategories as follows
+
+1. No sig. inter-species difference in RNA
+
+    1.1. No sig. inter-species difference in Ribo
+    
+    1.2. Sig. inter-species difference in Ribo
+    
+2. Sig. inter-species difference in RNA
+
+    2.1. ( abs(inter-species RNA FC) > abs(inter-species Ribo FC) ) OR
+         ( inter-species RNA FC and inter-species Ribo FC are of 
+           the opposite direction) - **Attenuation at the Ribo level**
+           
+    2.2. ( abs(inter-species RNA FC) < abs(inter-species Ribo FC) ) AND
+         ( inter-species RNA FC and inter-species Ribo FC are of the
+           same direction) - **Enhancement at the Ribo level**
+
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+
+ 
+Load rdas of LRT results and compute fold change estimates using
+RPKM values before quantile normalization. 
+
+
+```{r, bootstrap.show.code = TRUE}
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+## load LRT results of Ribo vs. RNA divergence
+load(file.path(rdadir,"TEnew.rda"))
+
+## load LRT results of DE analysis
+load(file.path(rdadir,"DE.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load(file.path(rdadir,"eSetRRP.rda"))
+eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+fc.mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.temp$species==c("human","chimp")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+  })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","rna","protein")
+  return(data.frame(emat))
+})
+names(fc.mat)=c("human","chimp")
+dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
+                           rna=fc.mat$human$rna-fc.mat$chimp$rna,
+                           pro=fc.mat$human$protein-fc.mat$chimp$protein)
+
+xy.rnapro = data.frame(rna=dmat_unnormed$rna,
+                       pro=dmat_unnormed$pro)
+xy.riborna = data.frame(rna=dmat_unnormed$rna,
+                        ribo=dmat_unnormed$ribo)
+xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
+                        pro=dmat_unnormed$pro)
+```
+
+
+Define subsets of genes at FDR < .01.
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
+
+## Genes with sig. human/chimp difference in RNA levels
+ii_sig_RNA_DE <- rnaRes.Q$qval < .01
+
+## Genes with sig. human/chimp difference in Ribo levels
+ii_sig_Ribo_DE <- riboRes.Q$qval < .01
+
+
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo difference, AND
+## b) Sig. DE at RNA level, AND
+## c) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
+ii_riboGTrna <- 
+    (ii_sig_rnaribo) & ii_sig_RNA_DE & 
+    ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
+      (xy.riborna$rna * xy.riborna$ribo > 0 ) )
+
+
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) Sig. DE at RNA level, AND 
+## c) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
+ii_rnaGTribo <- 
+    (ii_sig_rnaribo) & ii_sig_RNA_DE & 
+    ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
+      (xy.riborna$rna * xy.riborna$ribo < 0) ) 
+
+
+## Category 3, Pseudo enhacement, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) Sig. DE at Ribo level
+ii_null_rnaGTribo <- 
+    ii_sig_rnaribo & !ii_sig_RNA_DE & ii_sig_Ribo_DE
+
+
+## Category 4, Null divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) No sig. DE at Ribo level
+ii_null_rnaNULLribo <- 
+    ii_sig_rnaribo & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
+
+
+Ribo_refmat <- rbind.data.frame(attenuated = sum(ii_rnaGTribo),
+                                   enhanced = sum(ii_riboGTrna),
+                                   null_enhanced = sum(ii_null_rnaGTribo),
+                                   null = sum(ii_null_rnaNULLribo) )
+colnames(Ribo_refmat) <- "# genes"
+Ribo_refmat
+```
+
+
+
+
+
+
+Session information
+===========
+
+```{r}
+sessionInfo()
+```
+

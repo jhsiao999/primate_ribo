@@ -19,7 +19,16 @@ tagline: A comparative study of translation divergence
 
 #### Differential divergence analysis
 
-- [RNA verus Ribo divergence](project/analysis/compare-ribo-rna-divergence.html)
+- [RNA vs. Ribo divergence]
+
+   - [Translation efficiency analysis](project/analysis/compare-ribo-rna-divergence.html)
+   - [Attenuation and Reinforcement](project/analysis/compare-ribo-rna-direction.html)
+   - [Sanity check using RNA as the reference phenotype](project/analysis/divergence-check-rna-ref.html)
+
+- [RNA vs. Protein divergence]
+
+   - [Attenuation and Reinforement](project/analysis/compare-rna-pro-divergence.html)
+   - [Sanity check using RNA as the reference phenotype](project/analysis/divergence-check-pro-ref-rna.html)
 
 
 #### Attenuated regulatory divergence
@@ -31,7 +40,7 @@ tagline: A comparative study of translation divergence
 
 ##### Divergence definition 2015/08/14
 
-- [RNA-protein divergence given RNA-Ribo divergence](project/analysis/translation_efficiency_and_protein_new_def.html)
+- [RNA-protein divergence conditioned on RNA-Ribo divergence](project/analysis/translation-efficiency-protein-divergence-20150814.html)
 - [RNA-Ribo divergence given RNA-protein divergence](project/analysis/translation_and_attenuated_protein_new_def.html)
 
 

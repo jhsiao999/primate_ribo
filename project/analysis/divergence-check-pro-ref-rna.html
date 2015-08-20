@@ -862,20 +862,30 @@
 </head>
 <body>
 <title>
-Compare transcript divergence with translation divergence
+Sanity check on RNA vs. Protein divergence results
 </title>
 <div id="wrap">
 <div class="container">
 <div class="row row-offcanvas row-offcanvas-right">
 <div class="contents col-xs-12 col-md-10">
-<h1 id="differential-divergence-analysis">Differential divergence analysis</h1>
+<h1 id="checking-rna-vs.-protein-divergence">Checking RNA vs. Protein divergence</h1>
 <div class="row">
 Author: <a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>
 </div>
 <div class="row">
-Last updated: 2015-08-20 13:11:14
+Last updated: 2015-08-20 13:23:03
 </div>
-<p><a href="compare-ribo-rna-divergence.Rmd">view source</a></p>
+<p><a href="divergence-check-rna-ref.Rmd">view source</a></p>
+<h1 id="definitions">Definitions</h1>
+<p>The set of genes that are significant in inter-species difference of RNA vs. Protein divergence can be divided into two categories, and within each of the categories, the genes can further be divided into two subcategories as follows</p>
+<ol style="list-style-type: decimal">
+<li><p>No sig. inter-species difference in Protein</p>
+<p>1.1. No sig. inter-species difference in RNA</p>
+<p>1.2. Sig. inter-species difference in RNA</p></li>
+<li><p>Sig. inter-species difference in Protein</p>
+<p>2.1. ( abs(inter-species Protein FC) &gt; abs(inter-species RNA FC) ) OR ( inter-species Protein FC and inter-species Ribo FC are of the opposite direction) - <strong>Attenuation at the RNA level</strong></p>
+<p>2.2. ( abs(inter-species Protein FC) &lt; abs(inter-species RNA FC) ) AND ( inter-species RNA FC and inter-species Protein FC are of the same direction) - <strong>Enhancement at the RNA level</strong></p></li>
+</ol>
 <div class="row">
 <div class="panel panel-primary">
 <div class="source R panel-heading toggle">
@@ -900,8 +910,7 @@ require(devtools)
 require(Humanzee)</code></pre>
 </div>
 </div>
-<h1 id="human-versus-chimp">Human versus Chimp</h1>
-<p>We used a likelihood ratio test to compare species divergence at the Ribo level versus at the RNA level.</p>
+<p>Load rdas of LRT results and compute fold change estimates using RPKM values before normalization.</p>
 <div class="row">
 <div class="panel panel-primary">
 <div class="source R panel-heading toggle">
@@ -909,81 +918,45 @@ require(Humanzee)</code></pre>
 <span class="glyphicon glyphicon-chevron-down"></span> R source
 </h5>
 </div>
-<pre style=""><code class="source r">load(file.path(rdadir,"eSetRRP.rda"))
+<pre style=""><code class="source r">## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
 
-# eSetRRP.RP.Q.log2 includes log2 quantile-normalized RPKM values
-# Take a human and rhesus data that includes only RNA and Ribo
-eSet <- eSetRRP.RP.Q.log2[ , 
-          eSetRRP.RP.Q.log2$seqData != "protein"]
+## load LRT results of Ribo vs. RNA divergence
+load(file.path(rdadir,"TEnew.rda"))
 
-# Interaction analysis comparing the inter-species
-# fold change between RNA and Ribo
-res.riborna <- interact2way(eSet)
+## load LRT results of DE analysis
+load(file.path(rdadir,"DE.rda"))
 
-save(res.riborna,file=file.path(rdadir,"TEnew.rda"))</code></pre>
-</div>
-</div>
-<p>The genes with significant interaction effect at FDR &lt; .01 are considered as significant in species difference between RNA and Ribo, or equivalently, species difference in translation efficiency.</p>
-<div class="row">
-<div class="panel panel-primary">
-<div class="source R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</h5>
-</div>
-<pre style=""><code class="source r">load(file.path(rdadir, "TEnew.rda"))
 
-# Number of genes with sig. species difference in TE
-sum(res.riborna$int.qval < .01)</code></pre>
-</div>
-<div class="panel panel-success">
-<div class="output R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</h5>
-</div>
-<pre style=""><code class="output r">## [1] 478
-</code></pre>
-</div>
-</div>
-<h1 id="other-inter-species-comparisons">Other inter-species comparisons</h1>
-<blockquote>
-<p>We performed the same likelihood ratio test to compare RNA and Ribo layer divergence between rhesus monkey and human or chimpanzee.</p>
-</blockquote>
-<div class="row">
-<div class="panel panel-primary">
-<div class="source R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</h5>
-</div>
-<pre style=""><code class="source r"># load eSetRRP.RP.Q.log2, which contains log2 RPKM values, quantile-normalized
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
 load(file.path(rdadir,"eSetRRP.rda"))
+eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+fc.mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.temp$species==c("human","chimp")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+  })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","rna","protein")
+  return(data.frame(emat))
+})
+names(fc.mat)=c("human","chimp")
+dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
+                           rna=fc.mat$human$rna-fc.mat$chimp$rna,
+                           pro=fc.mat$human$protein-fc.mat$chimp$protein)
 
-# Subset human and rhesus samples in RNA and Ribo data
-eSet_human_rhesus <- 
-    eSetRRP.RP.Q.log2[, eSetRRP.RP.Q.log2$species != "chimp" & 
-                        eSetRRP.RP.Q.log2$seqData != "protein"]
-
-# Interaction analysis comparing RNA-Ribo between human and rhesus
-res.riborna_human_rhesus <- interact2way(eSet_human_rhesus)
-
-# Subset chimp and rhesus samples in RNA and Ribo data
-eSet_chimp_rhesus <- 
-    eSetRRP.RP.Q.log2[, eSetRRP.RP.Q.log2$species != "human" & 
-                        eSetRRP.RP.Q.log2$seqData != "protein"]
-
-# Interaction analysis comparing RNA-Ribo between chimp and rhesus
-res.riborna_chimp_rhesus <- interact2way_full_buffer(eSet_chimp_rhesus) 
-
-
-save(res.riborna_human_rhesus, res.riborna_chimp_rhesus,
-     file = file.path(rdadir,"TE_other_interspecies.rda"))</code></pre>
+xy.rnapro = data.frame(rna=dmat_unnormed$rna,
+                       pro=dmat_unnormed$pro)
+xy.riborna = data.frame(rna=dmat_unnormed$rna,
+                        ribo=dmat_unnormed$ribo)
+xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
+                        pro=dmat_unnormed$pro)</code></pre>
 </div>
 </div>
-<blockquote>
-<p>Number of genes with sig. TE difference between rhesus and human or rhesus.</p>
-</blockquote>
+<p>Define subsets of genes at FDR &lt; .01.</p>
 <div class="row">
 <div class="panel panel-primary">
 <div class="source R panel-heading toggle">
@@ -991,10 +964,57 @@ save(res.riborna_human_rhesus, res.riborna_chimp_rhesus,
 <span class="glyphicon glyphicon-chevron-down"></span> R source
 </h5>
 </div>
-<pre style=""><code class="source r">load(file.path(rdadir, "TE_other_interspecies.rda"))
+<pre style=""><code class="source r">## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
 
-data.frame(human_rhesus = sum(res.riborna_human_rhesus$int.qval < .01),
-           chimp_rhesus = sum(res.riborna_chimp_rhesus$int.qval < .01) )</code></pre>
+## Genes with sig. human/chimp difference in RNA levels
+ii_sig_RNA_DE <- rnaRes.Q$qval < .01
+
+## Genes with sig. human/chimp difference in Protein levels
+ii_sig_Pro_DE <- massRes.Q$qval < .01
+
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Protein difference, AND
+## b) Sig. diff. at Protein level, AND
+## c) ( abs(Protein FC) < abs(RNA FC) ) AND ( RNA FC * Protein FC > 0)
+iicheck_rnaGTpro <- 
+    (ii_sig_rnapro) & ii_sig_Pro_DE & 
+    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro)) & 
+      (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
+
+
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) Sig. DE at Protein level, AND 
+## c) ( abs(Protein FC) > abs(RNA FC) ) AND ( RNA FC * Protein FC < 0)
+iicheck_proGTrna <- 
+    (ii_sig_rnapro) & ii_sig_Pro_DE & 
+    ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna) ) | 
+      (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
+
+
+## Category 3, Pseudo enhacement, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) No sig. DE at Protein level, AND 
+## c) Sig. DE at RNA level
+iicheck_null_proGTrna <- 
+    ii_sig_rnapro & !ii_sig_Pro_DE & ii_sig_RNA_DE
+
+
+## Category 4, Null divergence, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) No sig. DE at Protein level
+iicheck_null_proNULLrna <- 
+    ii_sig_rnapro & !ii_sig_RNA_DE & !ii_sig_Pro_DE
+
+
+RNA_refmat <- rbind.data.frame(attenuated = sum(iicheck_proGTrna),
+                               enhanced = sum(iicheck_rnaGTpro),
+                               null_enhanced = sum(iicheck_null_proGTrna),
+                               null = sum(iicheck_null_proNULLrna) )
+colnames(RNA_refmat) <- "# genes"
+RNA_refmat</code></pre>
 </div>
 <div class="panel panel-success">
 <div class="output R panel-heading toggle">
@@ -1002,112 +1022,11 @@ data.frame(human_rhesus = sum(res.riborna_human_rhesus$int.qval < .01),
 <span class="glyphicon glyphicon-chevron-down"></span> R output
 </h5>
 </div>
-<pre style=""><code class="output r">##   human_rhesus chimp_rhesus
-## 1          562           88
-</code></pre>
-</div>
-</div>
-<h1 id="qc-checks-on-the-results-above">QC checks on the results above</h1>
-<p>The above results used a subset of RNA and Ribo data that was already quantile-normalized. Therefore, the distribution of these 3,188 genes are not exactly the same across the samples.</p>
-<p>We quantile-normalized sequencing data of 3,188 genes for each of the data types across the three species.</p>
-<div class="row">
-<div class="panel panel-primary">
-<div class="source R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</h5>
-</div>
-<pre style=""><code class="source r">load(file.path(rdadir,"eSetRRP.rda"))
-
-# Quantile normalize RNA RPKM values across species
-qmatRNA <- normalize(exprs(eSetRRP.RP[,eSetRRP.RP$seqData=="rna"]),
-                     geneLen = NULL,
-                     method="quantile",log="TRUE")
-
-# Quantile normalize Ribo RPKM values across species
-qmatRIBO <- normalize(exprs(eSetRRP.RP[,eSetRRP.RP$seqData=="ribo"]),
-                      geneLen = NULL,
-                      method="quantile",log="TRUE")
-
-# Quantile normalize mass spectrametry data across species
-qmatMASS <- normalize(exprs(eSetRRP.RP[,eSetRRP.RP$seqData=="protein"]),
-                      geneLen = NULL,
-                      method="quantile",log="FALSE")
-
-# Make expression set 
-emat <- cbind(qmatRNA, qmatRIBO, qmatMASS)
-eSetRRP.RP.Q.log2.post <- ExpressionSet(assayData = emat,
-                       phenoData=phenoData(eSetRRP.RP),
-                       experimentData=experimentData(eSetRRP.RP))
-featureData(eSetRRP.RP.Q.log2.post) <- featureData(eSetRRP.RP.Q.log2.post)     </code></pre>
-</div>
-</div>
-<h2 id="inter-species-comparisons">Inter-species comparisons</h2>
-<div class="row">
-<div class="panel panel-primary">
-<div class="source R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</h5>
-</div>
-<pre style=""><code class="source r"># Subset human and chimp samples in RNA and Ribo data
-eSet.post_human_chimp <- 
-  eSetRRP.RP.Q.log2.post[ , eSetRRP.RP.Q.log2.post$species != "rhesus" & 
-                     eSetRRP.RP.Q.log2.post$seqData != "protein"]
-
-# Subset human and rhesus samples in RNA and Ribo data
-eSet.post_human_rhesus <- 
-  eSetRRP.RP.Q.log2.post[ , eSetRRP.RP.Q.log2.post$species != "chimp" & 
-                     eSetRRP.RP.Q.log2.post$seqData != "protein"]
-
-# Subset chimp and rhesus samples in RNA and Ribo data
-eSet.post_chimp_rhesus <- 
-  eSetRRP.RP.Q.log2.post[ , eSetRRP.RP.Q.log2.post$species != "human" & 
-                     eSetRRP.RP.Q.log2.post$seqData != "protein"]
-
-# Likelihood ratio test for human vs. chimp difference in 
-# translation efficiency
-res.riborna.post_human_chimp <- interact2way(eSet.post_human_chimp)
-
-# Likelihood ratio test for human vs. rhesus difference in 
-# translation efficiency
-res.riborna.post_human_rhesus <- interact2way(eSet.post_human_rhesus)
-
-# Likelihood ratio test for chimp vs. rhesus difference in 
-# translation efficiency
-res.riborna.post_chimp_rhesus <- interact2way(eSet.post_chimp_rhesus)
-
-
-save(eSetRRP.RP.Q.log2.post,
-     res.riborna.post_human_chimp,
-     res.riborna.post_human_rhesus, 
-     res.riborna.post_chimp_rhesus,
-     file = file.path(rdadir,"TE_postQ.rda"))</code></pre>
-</div>
-</div>
-<blockquote>
-<p>Number of genes sig. difference in translation efficiency</p>
-</blockquote>
-<div class="row">
-<div class="panel panel-primary">
-<div class="source R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R source
-</h5>
-</div>
-<pre style=""><code class="source r">load(file.path(rdadir, "TE_postQ.rda"))
-data.frame(human_chimp = sum(res.riborna.post_human_chimp$int.qval < .01),
-           human_rhesus = sum(res.riborna.post_human_rhesus$int.qval < .01),
-           chimp_rhesus = sum(res.riborna.post_chimp_rhesus$int.qval < .01) )</code></pre>
-</div>
-<div class="panel panel-success">
-<div class="output R panel-heading toggle">
-<h5 class="panel-title">
-<span class="glyphicon glyphicon-chevron-down"></span> R output
-</h5>
-</div>
-<pre style=""><code class="output r">##   human_chimp human_rhesus chimp_rhesus
-## 1         295          623           89
+<pre style=""><code class="output r">##               # genes
+## attenuated         47
+## enhanced           10
+## null_enhanced     170
+## null               84
 </code></pre>
 </div>
 </div>
