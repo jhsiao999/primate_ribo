@@ -1,15 +1,15 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "RNA vs. Ribo divergence"
+    title: "Sanity check, relative to Ribo divergence"
     theme: default
     theme.chooser: TRUE
     highlight.chooser: TRUE
 ---
 
 
-RNA vs. Ribo divergence
-========================
+Sanity check, relative to Ribo divergence
+===========================================
 
 
 ```{r run_author, results='asis', echo=FALSE}
@@ -25,7 +25,7 @@ cat(paste("Last updated:", last_update))
 ```
 
 
-[view source](compare-ribo-rna-direction-20150812.Rmd)
+[view source](divergence-check-rna-ref.Rmd)
 
 
 ```{r knitr_settings, include=FALSE, echo=FALSE}
@@ -57,31 +57,38 @@ require(Humanzee)
 ```
 
 
-Goal
-========
 
-Compute the number of genes attenuated or enhanced at the Ribo level 
-compared to the RNA level using the following definitions.
+Goal
+===========
+
+As a sanity check of our new definition of attenuation and enhancement of 
+translation divergence relative to transcript divergence, we applied the same 
+steps to compute the number of genes that are attenuated or enhanced at 
+the transcript level compared to the translation level. We expect that the 
+ratio of the number of genes that fall in to each category in transcript
+attenuation or enhancement would the inverse of the ratio of the number of 
+genes that fall into each category in translation attenuation or attenuation.
 
 
 Definitions
-=============
+============
 
 The set of genes that are significant in inter-species difference of 
-RNA vs. Ribo (translation efficiency) can be divided into two categories, 
-and within each of the categories, the genes can further be divided into two subcategories as follows
+translation efficiency can be divided into two categories, and within
+each of the categories, the genes can further be divided into two 
+subcategories as follows
 
-1. ( abs(inter-species RNA FC) > abs(inter-species Ribo FC) ) OR
-     ( inter-species RNA FC and inter-species Ribo FC are of 
-       the opposite direction) - **Attenuation at the Ribo level**
+1. ( abs(inter-species Ribo FC) > abs(inter-species RNA FC) ) OR
+   ( inter-species RNA FC and inter-species Ribo FC are of 
+       the opposite direction) - **Attenuation at the RNA level**
        
-2. ( abs(inter-species RNA FC) < abs(inter-species Ribo FC) ) AND
+2. ( abs(inter-species Ribo FC) < abs(inter-species RNA FC) ) AND
      ( inter-species RNA FC and inter-species Ribo FC are of the
-       same direction) - **Enhancement at the Ribo level**
+       same direction) - **Enhancement at the RNA level**
 
 
-Note. Version-20150814 adds the criterion of sig. DE at RNA levels in order
-for a gene to be considered in the attenuation or enhancement category.
+
+
 
 
 ```{r}
@@ -127,35 +134,32 @@ xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
 ```
 
 
-
 Define subsets of genes at FDR < .01.
 
 ```{r}
-## Genes with sig. human/chimp difference in divergence between RNA and Ribo
-ii_sig_rnaribo <- res.riborna$int.qval < .01
+## Genes with sig. human/chimp difference in levels of translation efficiency 
+ii_sig_TE <- res.riborna$int.qval < .01
 
 
 ## Category 1 - Enhanced divergence, criteria are as follows
-## a) Sig. RNA vs. Ribo difference, AND
-## b) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
-ii_riboGTrna <- (ii_sig_rnaribo) & 
-                ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
-                  (xy.riborna$rna * xy.riborna$ribo > 0 ) )
+## a) Sig. translation efficiency, AND
+## b) ( abs(Ribo FC) < abs(RNA FC) ) AND ( RNA FC * Ribo FC > 0)
+iicheck_rnaGTribo <- (ii_sig_TE) & 
+                     ( (abs(xy.riborna$ribo) < abs(xy.riborna$rna)) & 
+                       (xy.riborna$rna * xy.riborna$ribo > 0 ) )
 
 
 ## Category 2 - Attenuated divergence, criteria are as follows
-## a) Sig. RNA vs. Ribo diff., AND
-## b) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
-ii_rnaGTribo <- (ii_sig_rnaribo) & 
-                ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
-                  (xy.riborna$rna * xy.riborna$ribo < 0) ) 
+## a) Sig. translation efficiency, AND
+## b) ( abs(Ribo FC) > abs(RNA FC) ) AND ( RNA FC * Ribo FC < 0)
+iicheck_riboGTrna <- (ii_sig_TE) & 
+                     ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna) ) | 
+                       (xy.riborna$rna * xy.riborna$ribo < 0) ) 
 
-
-Ribo_refmat <- rbind.data.frame(attenuated = sum(ii_rnaGTribo),
-                                enhanced = sum(ii_riboGTrna) )
-colnames(Ribo_refmat) <- "# genes"
-
-kable(Ribo_refmat)
+RNA_refmat <- rbind.data.frame(attenuated = sum(iicheck_riboGTrna),
+                               enhanced = sum(iicheck_rnaGTribo) )
+colnames(RNA_refmat) <- "# genes"
+kable(RNA_refmat)
 ```
 
 
@@ -164,8 +168,7 @@ kable(Ribo_refmat)
 
 
 Session information
-========================
-
+===========
 
 ```{r}
 sessionInfo()

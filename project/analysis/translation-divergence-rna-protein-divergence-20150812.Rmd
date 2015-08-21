@@ -1,0 +1,487 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "RNA-Ribo divergence conditioned on RNA-Protein divergence"
+    theme: default
+---
+
+
+RNA-Ribo divergence conditioned on RNA-Protein divergence
+===========================================================
+
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+Goal
+====
+
+We investigate protein divergence relative to RNA divergence and consider
+if attenuation at the protein level is more likely to be associated with
+attenuation at the RNA level, and if enhancement at the protein level 
+is more likely to be associated with enhancement at the RNA level.
+
+
+Definitions
+===========
+
+Of all the 3,188 genes included in the analysis, we apply divergence
+definition version-20150812 and investigate genes that fall into the following 
+three categories
+
+1. **attenuated** at the protein level relative to the RNA level 
+    * Sig. different between RNA and protein divergence) *AND* 
+      ( (the absolute value of protein divergence 
+      is smaller than the absolute value of RNA divergence) *OR* (protein 
+      divergence is in the opposite direction of RNA divergence) ) 
+
+2. **enhanced** at the protein level relative to the RNA level
+    * Sig. different between RNA and protein divergence) *AND* 
+      ( (the absolute value of protein divergence is greater 
+      than the absolute value of RNA divergence) *AND* 
+      (protein divergence is in the opposite direction of RNA divergence) )
+
+3. **null divergence**: of the 3,188 genes, those that do not fall in the 
+    above two categories.
+    
+
+
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
+
+## load LRT results of RNA vs. Ribo divergence
+load(file.path(rdadir,"TEnew.rda"))
+
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
+```
+
+
+Gene classification
+===================
+
+## RNA vs. Ribo divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
+
+
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo difference, AND
+## b) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
+ii_riboGTrna <- (ii_sig_rnaribo) & 
+                ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
+                  (xy.riborna$rna * xy.riborna$ribo > 0 ) )
+
+
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
+ii_rnaGTribo <- (ii_sig_rnaribo) &  
+                ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
+                  (xy.riborna$rna * xy.riborna$ribo < 0) ) 
+
+
+Ribo_refmat <- rbind.data.frame(attenuated = sum(ii_rnaGTribo),
+                                   enhanced = sum(ii_riboGTrna) )
+colnames(Ribo_refmat) <- "# genes"
+kable(Ribo_refmat)
+```
+
+
+## RNA vs. Protein divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Protein difference, AND
+## b) ( abs(RNA FC) < abs(Protein FC) ) AND ( RNA FC * Protein FC > 0)
+ii_proGTrna <- (ii_sig_rnapro) &  
+               ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
+                 (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
+
+
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) ( abs(RNA FC) > abs(Protein FC) ) OR ( RNA FC * Protein FC < 0)
+ii_rnaGTpro <- (ii_sig_rnapro) &  
+               ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
+                 (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
+
+
+Protein_refmat <- rbind.data.frame( attenuated = sum(ii_rnaGTpro),
+                                    enhanced = sum(ii_proGTrna) )
+colnames(Protein_refmat) <- "# genes"
+kable(Protein_refmat)
+```
+
+
+
+
+RNA ~ Protein
+==============
+
+
+Among ``r sum( !(ii_rnaGTpro | ii_proGTrna) )`` genes that are neither 
+enhanced nor attenuated at the protein level compared to the RNA level 
+(RNA ~ Protein), 
+
+* ``r sum( !(ii_rnaGTpro | ii_proGTrna) & ii_rnaGTribo)`` genes are 
+  attenuated at the translation level relative to the transcript level, and
+
+* ``r sum( !(ii_rnaGTpro | ii_proGTrna) & ii_riboGTrna)`` genes are
+
+
+```{r}
+ii_null_rnapro <- !(ii_rnaGTpro | ii_proGTrna)
+ii_null_rnapro_riboAttenuated <- !(ii_rnaGTpro | ii_proGTrna) & ii_rnaGTribo
+ii_null_rnapro_riboEnhanced <- !(ii_rnaGTpro | ii_proGTrna) & ii_riboGTrna
+
+boxplot(abs(dmat_unnormed$rna[ii_null_rnapro]),
+        abs(dmat_unnormed$ribo[ii_null_rnapro]),
+        abs(dmat_unnormed$pro[ii_null_rnapro]), 
+        axes = F, ylim = c(0, 10))
+axis(1, at = c(1,2,3), labels = c("RNA", "Ribo", "Protein"), 
+     col = "white")
+axis(2)
+points_cols <- c("Scarlet", "Sunglow", "Shamrock")
+points(rep(1, sum(ii_null_rnapro)), 
+       abs(dmat_unnormed$rna[ii_null_rnapro]), 
+       pch = 19, cex = .5, 
+       col = crayon[points_cols[1]] )
+points(rep(2, sum(ii_null_rnapro)), 
+       abs(dmat_unnormed$ribo[ii_null_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[2]] )
+points(rep(3, sum(ii_null_rnapro)), 
+       abs(dmat_unnormed$pro[ii_null_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[3]] )
+text(2, 10, adj = 0,
+     label = paste("RNA ~ Protein", sum(ii_null_rnapro), "genes" ) )
+text(2, 9, adj = 0,
+     label = paste("RNA vs. Ribo sig. diff.", 
+       sum(ii_null_rnapro & (res.riborna$int.qval<.01)), "genes; \n",
+       round(100*sum(ii_null_rnapro & (res.riborna$int.qval<.01))/
+               sum(ii_null_rnapro), 2), "%") )
+text(2, 8, adj = 0,
+     label = paste("Attenuated translation", 
+       sum(ii_null_rnapro_riboAttenuated), "genes; \n",
+       round(100*sum(ii_null_rnapro_riboAttenuated)/sum(ii_null_rnapro), 2), "%") )
+text(2, 7, adj = 0,
+     label = paste("Enhanced translation", 
+       sum(ii_null_rnapro_riboEnhanced), "genes; \n",
+       round(100*sum(ii_null_rnapro_riboEnhanced)/sum(ii_null_rnapro), 2), "%") )
+title(main = "RNA ~ Protein, no sig. diff. divergence",
+      ylab = "absolute divergence (human-chimpanzee fold change)")
+
+# # Compute pairwise p-values between effect sizes of Ribo, RNA, and protein
+# # among genes with RNA ~ Protein
+# rna_ribo_t <- t.test( abs(dmat_unnormed$rna[ii_proNULLrna]),
+#        abs(dmat_unnormed$ribo[ii_proNULLrna]), paired = TRUE )
+# rna_pro_t <- t.test( abs(dmat_unnormed$rna[ii_proNULLrna]),
+#        abs(dmat_unnormed$pro[ii_proNULLrna]), paired = TRUE )
+# ribo_pro_t <- t.test( abs(dmat_unnormed$ribo[ii_proNULLrna]),
+#        abs(dmat_unnormed$pro[ii_proNULLrna]), paired = TRUE )
+# 
+# text(.5, 10, adj = 0,
+#      label = paste("Paired t-test of effect sizes") )
+# text(.5, 9, adj = 0,
+#      label = paste("RNA vs. Ribo: p-value < 1e-14") )
+# text(.5, 8, adj = 0,
+#      label = paste("RNA vs. Protein: p-value < 1e-15") )
+# text(.5, 7, adj = 0,
+#      label = paste("Ribo vs. Protein: p-value < 1e-15") )
+# 
+```
+
+
+## Signal in RNA ~ Protein
+
+Among the ``r sum(ii_null_rnapro & res.riborna$int.qval < .01)`` genes with 
+RNA and Ribo significant differences and no significant difference between 
+RNA and protein, we do a follow-up analysis to look further to consider the contribution/relation of translation divergence to protein divergence, 
+relative to RNA divergence. 
+
+Yoav: So, for example, if gene 1 (among the 
+``r sum(ii_null_rnapro & res.riborna$int.qval < .01)`` genes with sig. diff. 
+between RNA and Ribo) shows attenuated translation relative to RNA, protein 
+divergence will be attenuated relative to RNA divergence. If gene 2 
+(among the ``r sum(ii_null_rnapro & res.riborna$int.qval < .01)`` genes with 
+sig. diff. between RNA and Ribo) shows enhanced ribo divergence compared with 
+RNA, I predict that the protein divergence will also be enhanced compared 
+with RNA.
+
+
+```{r}
+## RNA-Ribo enhancement or attenuation
+ii_null_rnapro_riboAttenuated <- !(ii_rnaGTpro | ii_proGTrna) & ii_rnaGTribo
+ii_null_rnapro_riboEnhanced <- !(ii_rnaGTpro | ii_proGTrna) & ii_riboGTrna
+
+## RNA-Protein enhancement or attenuation
+ii_null_rnapro_proAttenuated <- 
+    !(ii_rnaGTpro | ii_proGTrna) & 
+    ( abs(xy.rnapro$rna) > abs(xy.rnapro$pro) | 
+      xy.rnapro$rna * xy.rnapro$pro < 0 ) 
+
+ii_null_rnapro_proEnhanced <- 
+    !(ii_rnaGTpro | ii_proGTrna) &
+    ( abs(xy.rnapro$rna) < abs(xy.rnapro$pro) & 
+      (xy.rnapro$rna * xy.rnapro$pro > 0)  )
+
+plot_mat <- matrix(0, 2, 2)
+rownames(plot_mat) <- c("RNA-Ribo enhanced", "RNA-Ribo attenuated")
+colnames(plot_mat) <- c("RNA-Protein enhanced", "RNA-Protein attenuated")
+
+plot_mat[1,1] <- sum(ii_null_rnapro_riboEnhanced*ii_null_rnapro_proEnhanced)
+plot_mat[1,2] <- sum(ii_null_rnapro_riboEnhanced*ii_null_rnapro_proAttenuated)
+plot_mat[2,1] <- sum(ii_null_rnapro_riboAttenuated*ii_null_rnapro_proEnhanced)
+plot_mat[2,2] <- sum(ii_null_rnapro_riboAttenuated*ii_null_rnapro_proAttenuated)
+
+kable(plot_mat)
+```
+
+
+### Attenuated translation
+
+Among the ``r sum(ii_null_rnapro_riboAttenuated)`` genes that were attenuated 
+at the translation level relative to the transcript level 
+(RNA-Ribo attenuation), we tested the null hypothesis that these genes are 
+as likely to be attenuated as to be enhanced at the protein level relative to 
+the transcript level (RNA-Protein). If this null hypothesis were rejected and 
+the number of genes that were attenuated at the protein layer is larger than 
+the number of genes that were enhanced at the protein layer, then we say that 
+attenuation at the translation level is more likey to co-occur with
+attenuation at the protein level than with enhancement at the protein level.
+
+
+```{r}
+prop.test(plot_mat[2,2], rowSums(plot_mat)[2])
+```
+
+
+### Enhanced translation
+
+Among the ``r sum(ii_null_rnapro_riboEnhanced)`` genes that were reinforced 
+at translation, we tested the null hypothesis that these genes are as likely
+to be enhanced as to be attenuated at the protein layer. If this null 
+hypothesis were rejected and the number of genes that were enhanced at the 
+protein layer is more than those attenuated at the protein layer, then we 
+say that genes that are enhanced at the translation level are more likely 
+to be enhanced at the protein level than to be attenuated at the protein level.
+
+
+```{r}
+## One-proportion z-test
+prop.test(plot_mat[1,1], rowSums(plot_mat)[1])
+
+## Exact test of proportions (binomial test)
+binom.test(plot_mat[1,1], rowSums(plot_mat)[1])
+```
+
+
+
+
+
+RNA > Protein
+==============
+
+Among the genes that are attenuated at the protein level compared to the 
+RNA level (RNA > protein), we are interested in the number of genes with
+attenuated translation. In other words, we ask whether genes that were
+attenuated at the protein level were more likely to be enriched with
+genes attenuated at the translation level.
+
+For the hypothesis testing, we computed number of genes enriched in 
+translation
+attenuation among the genes enriched for protein attenuation in the
+set of ``r sum(ii_null_rnapro)`` with similar divergence levels between
+RNA and protein.
+
+
+```{r}
+boxplot(abs(dmat_unnormed$rna[ii_rnaGTpro]),
+        abs(dmat_unnormed$ribo[ii_rnaGTpro]),
+        abs(dmat_unnormed$pro[ii_rnaGTpro]), 
+        axes = F, ylim = c(0, 10))
+axis(1, at = c(1,2,3), labels = c("RNA", "Ribo", "Protein"), 
+     col = "white")
+axis(2)
+points_cols <- c("Scarlet", "Sunglow", "Shamrock")
+points(rep(1, sum(ii_rnaGTpro)), abs(dmat_unnormed$rna[ii_rnaGTpro]), 
+       pch = 19, cex = .5, 
+       col = crayon[points_cols[1]] )
+points(rep(2, sum(ii_rnaGTpro)), abs(dmat_unnormed$ribo[ii_rnaGTpro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[2]] )
+points(rep(3, sum(ii_rnaGTpro)), abs(dmat_unnormed$pro[ii_rnaGTpro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[3]] )
+text(2.2, 9, adj = 0,
+     label = paste("RNA > Protein", sum(ii_rnaGTpro), 
+                   "genes" ) )
+text(2.2, 8, adj = 0,
+     label = paste("RNA vs. Ribo sig. diff.", 
+      sum( ii_rnaGTpro*(res.riborna$int.qval<.01) ), 
+      "genes; \n",
+      round( 100*sum(ii_rnaGTpro*(res.riborna$int.qval<.01) )/
+            sum(ii_rnaGTpro), 2),"%") )
+text(2.2, 7, adj = 0,
+     label = paste("Attenuated at translation", 
+      sum( ii_rnaGTpro*ii_rnaGTribo ), "genes; \n",
+      round( 100*sum(ii_rnaGTpro*ii_rnaGTribo)/sum(ii_rnaGTpro), 2),"%") )
+title(main = paste("RNA > Protein",sum(ii_rnaGTpro),
+                   "genes (Attenuated divergence)"),
+      ylab = "absolute divergence (human-chimpanzee fold change)")
+
+
+## Null proportion of RNA-Protein attenuated | RNA-Ribo attenuated
+rnapro_null_proAttenuated <- plot_mat[2, 2]/rowSums(plot_mat)[2]
+
+
+prop.test( sum(ii_rnaGTpro*ii_rnaGTribo),
+           sum(ii_rnaGTpro), p = rnapro_null_proAttenuated)
+
+binom.test( sum(ii_rnaGTpro*ii_rnaGTribo),
+           sum(ii_rnaGTpro), p = rnapro_null_proAttenuated)
+```
+
+
+
+
+
+RNA < Protein
+==============
+
+Among the genes that are enhanced at the protein level relative to the RNA 
+level (RNA < Protein), we are interested in the number of genes that are 
+enhanced at the translation level relative to the RNA level.
+
+For the hypothesis testing, we computed number of genes enriched in 
+translation reinforcement among the genes enriched for protein 
+enhancement in the
+set of ``r sum(ii_null_rnapro)`` with similar divergence levels between
+RNA and protein.
+
+
+
+```{r}
+boxplot(abs(dmat_unnormed$rna[ii_proGTrna]),
+        abs(dmat_unnormed$ribo[ii_proGTrna]),
+        abs(dmat_unnormed$pro[ii_proGTrna]), 
+        axes = F, ylim = c(0, 10))
+axis(1, at = c(1,2,3), labels = c("RNA", "Ribo", "Protein"), 
+     col = "white")
+axis(2)
+points_cols <- c("Scarlet", "Sunglow", "Shamrock")
+points(rep(1, sum(ii_proGTrna)), abs(dmat_unnormed$rna[ii_proGTrna]), 
+       pch = 19, cex = .5, 
+       col = crayon[points_cols[1]] )
+points(rep(2, sum(ii_proGTrna)), abs(dmat_unnormed$ribo[ii_proGTrna]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[2]] )
+points(rep(3, sum(ii_proGTrna)), abs(dmat_unnormed$pro[ii_proGTrna]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[3]] )
+text(1.5, 9, adj = 0,
+     label = paste("Protein > RNA", sum(ii_proGTrna), "genes" ) )
+text(1.5, 8, adj = 0,
+     label = paste("RNA vs. Ribo sig. diff.", 
+       sum( ii_proGTrna*(res.riborna$int.qval<.01) ), "genes; \n",
+       round(100*sum( ii_proGTrna*(res.riborna$int.qval<.01) )/
+             sum(ii_proGTrna), 2), "%") ) 
+text(1.5, 6, adj = 0,
+     label = paste("Reinfored at translation", 
+      sum(ii_proGTrna*ii_riboGTrna), "genes; \n",
+      round(100*sum(ii_proGTrna*ii_riboGTrna)/sum(ii_proGTrna),
+            2),"%") )
+title(main = paste("RNA < Protein",sum(ii_proGTrna),
+                  "genes (Enhanced protein divergence)"),
+      ylab = "absolute divergence (human-chimpanzee fold change)")
+
+
+## Null proportion of RNA-Ribo enhanced | RNA-Protein enhanced
+rnapro_null_proEnhanced <- plot_mat[1, 1]/rowSums(plot_mat)[1]
+
+prop.test( sum(ii_proGTrna*ii_riboGTrna),
+           sum(ii_proGTrna), p = rnapro_null_proEnhanced)
+
+binom.test( sum(ii_proGTrna*ii_riboGTrna),
+           sum(ii_proGTrna), p = rnapro_null_proEnhanced)
+```
+
+
+

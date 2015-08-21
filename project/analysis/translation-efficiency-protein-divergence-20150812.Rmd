@@ -21,7 +21,7 @@ last_update <- Sys.time()
 cat(paste("Last updated:", last_update))
 ```
 
-[view source](translation-efficiency-protein-divergence-20150814.Rmd)
+[view source](translation-efficiency-protein-divergence-20150812.Rmd)
 
 
 ```{r knitr_settings, include=FALSE, echo=FALSE}
@@ -58,10 +58,9 @@ Goal
 =====
 
 Consider the set of genes with sig. difference in translation efficiency 
-between human and chimpanzee. We then take the set of genes with sig.
-difference between species at the RNA levels and categorize the gens into
+between human and chimpanzee. We then categorize the genes into
 attenuation or enhancement at the translation level. Finally, we compute
-the proportion of genes attenuated at the protein levelamong the set of genes
+the proportion of genes attenuated at the protein level in the set of genes
 attenuated at the RNA level, and the proportion of genes enforced at protein
 level among the set of genes attenuated at the RNA level. 
 
@@ -86,7 +85,7 @@ at the RNA level and classified these genes as follows
     2.1 Of those attenuated at Ribo, No. of genes attenuated at protein
    
 The definitions of enhancement and attenuation follows 
-Definition version-20150814. 
+Definition version-20150812. 
    
    
 ```{r}
@@ -98,9 +97,6 @@ load(file.path(rdadir,"TEnew.rda"))
 
 ## load LRT results of RNA vs. Protein divergence
 load(file.path(rdadir,"rnapro.rda"))
-
-## load LRT results of DE analysis
-load(file.path(rdadir,"DE.rda"))
 
 
 ## Compute fold changes based on un-normalized data
@@ -142,49 +138,24 @@ xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
 ## Genes with sig. human/chimp difference in divergence between RNA and Ribo
 ii_sig_rnaribo <- res.riborna$int.qval < .01
 
-## Genes with sig. human/chimp difference in RNA levels
-ii_sig_RNA_DE <- rnaRes.Q$qval < .01
-
-## Genes with sig. human/chimp difference in Ribo levels
-ii_sig_Ribo_DE <- riboRes.Q$qval < .01
-
 
 ## Category 1 - Enhanced divergence, criteria are as follows
 ## a) Sig. RNA vs. Ribo difference, AND
-## b) Sig. DE at RNA level, AND
-## c) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
-ii_riboGTrna <- (ii_sig_rnaribo) & ii_sig_RNA_DE & 
+## b) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
+ii_riboGTrna <- (ii_sig_rnaribo) &  
                 ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
                   (xy.riborna$rna * xy.riborna$ribo > 0 ) )
 
 
 ## Category 2 - Attenuated divergence, criteria are as follows
 ## a) Sig. RNA vs. Ribo diff., AND
-## b) Sig. DE at RNA level, AND 
-## c) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
-ii_rnaGTribo <- (ii_sig_rnaribo) & ii_sig_RNA_DE & 
+## b) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
+ii_rnaGTribo <- (ii_sig_rnaribo) &  
                 ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
                   (xy.riborna$rna * xy.riborna$ribo < 0) ) 
 
-
-## Category 3, Pseudo enhacement, criteria are as follows
-## a) Sig. RNA vs. Ribo diff., AND
-## b) No sig. DE at RNA level, AND 
-## c) Sig. DE at Ribo level
-ii_null_rnaGTribo <- ii_sig_rnaribo & !ii_sig_RNA_DE & ii_sig_Ribo_DE
-
-
-## Category 4, Null divergence, criteria are as follows
-## a) Sig. RNA vs. Ribo diff., AND
-## b) No sig. DE at RNA level, AND 
-## c) No sig. DE at Ribo level
-ii_null_rnaNULLribo <- ii_sig_rnaribo & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
-
-
 Ribo_refmat <- rbind.data.frame(attenuated = sum(ii_rnaGTribo),
-                                   enhanced = sum(ii_riboGTrna),
-                                   null_enhanced = sum(ii_null_rnaGTribo),
-                                   null = sum(ii_null_rnaNULLribo) )
+                                   enhanced = sum(ii_riboGTrna) )
 colnames(Ribo_refmat) <- "# genes"
 kable(Ribo_refmat)
 ```
@@ -197,50 +168,26 @@ kable(Ribo_refmat)
 ## Genes with sig. human/chimp difference in divergence between RNA and protein
 ii_sig_rnapro <- res.rnapro$int.qval < .01
 
-## Genes with sig. human/chimp difference in RNA levels
-ii_sig_RNA_DE <- rnaRes.Q$qval < .01
-
-## Genes with sig. human/chimp difference in Protein levels
-ii_sig_Pro_DE <- massRes.Q$qval < .01
-
-
 ## Category 1 - Enhanced divergence, criteria are as follows
 ## a) Sig. RNA vs. Protein difference, AND
-## b) Sig. DE at RNA level, AND
-## c) ( abs(RNA FC) < abs(Protein FC) ) AND ( RNA FC * Protein FC > 0)
-ii_proGTrna <- (ii_sig_rnapro) & ii_sig_RNA_DE & 
+## b) ( abs(RNA FC) < abs(Protein FC) ) AND ( RNA FC * Protein FC > 0)
+ii_proGTrna <- (ii_sig_rnapro) &  
                ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
                  (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
 
 
 ## Category 2 - Attenuated divergence, criteria are as follows
 ## a) Sig. RNA vs. Protein diff., AND
-## b) Sig. DE at RNA level, AND 
-## c) ( abs(RNA FC) > abs(Protein FC) ) OR ( RNA FC * Protein FC < 0)
-ii_rnaGTpro <- (ii_sig_rnapro) & ii_sig_RNA_DE & 
+## b) ( abs(RNA FC) > abs(Protein FC) ) OR ( RNA FC * Protein FC < 0)
+ii_rnaGTpro <- (ii_sig_rnapro) &  
                ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
                  (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
 
 
-## Category 3, Pseudo enhacement, criteria are as follows
-## a) Sig. RNA vs. Protein diff., AND
-## b) No sig. DE at RNA level, AND 
-## c) Sig. DE at Protein level
-ii_null_rnaGTpro <- ii_sig_rnapro & !ii_sig_RNA_DE & ii_sig_Pro_DE
-
-
-## Category 4, Null divergence, criteria are as follows
-## a) Sig. RNA vs. Protein diff., AND
-## b) No sig. DE at RNA level, AND 
-## c) No sig. DE at Protein level
-ii_null_rnaNULLprotein <- ii_sig_rnapro & !ii_sig_RNA_DE & !ii_sig_Pro_DE
-
-
 Protein_refmat <- rbind.data.frame( attenuated = sum(ii_rnaGTpro),
-                                    enhanced = sum(ii_proGTrna),
-                                    null_enhanced = sum(ii_null_rnaGTpro),
-                                    null = sum(ii_null_rnaNULLprotein) )
+                                    enhanced = sum(ii_proGTrna) )
 colnames(Protein_refmat) <- "# genes"
+
 kable(Protein_refmat)
 ```
 
@@ -252,17 +199,7 @@ Gene classfication
 
 ## Enhancement and attenuation
 
-
 ```{r}
-## TE refers to translation efficiency
-summary_table_rnaribo <- rbind.data.frame( 
-                             TE = sum(ii_sig_rnaribo),
-                             TE_rnaDE = sum(ii_sig_rnaribo & ii_sig_RNA_DE),
-                             TE_rnaDE_riboAttenuated = sum(ii_rnaGTribo),
-                             TE_rnaDE_riboEnhanced = sum(ii_proGTrna) )
-colnames(summary_table_rnaribo) <- "# genes"
-kable(summary_table_rnaribo)
-
 ## Of the genes with sig. translation efficiency
 ## RNA-Ribo divergence versus RNA-protein divergence classification
 summary_table_rnaribo_rnapro <- matrix(0, 2, 2,
@@ -279,7 +216,6 @@ kable(summary_table_rnaribo_rnapro)
 ```
 
 
-
 ## Consistency of the direction of divergence
 
 ```{r}
@@ -293,11 +229,15 @@ summary_table_rnaribo_rnapro_consistency <-
                                       "rnapro_attenuated") ) )
 summary_table_rnaribo_rnapro_consistency[1, 1] <- sum(ii_riboGTrna & ii_proGTrna)
 summary_table_rnaribo_rnapro_consistency[1, 2] <- sum(ii_rnaGTribo & ii_rnaGTpro)
-summary_table_rnaribo_rnapro_consistency[2, 1] <- sum(!ii_riboGTrna & ii_proGTrna)
-summary_table_rnaribo_rnapro_consistency[2, 2] <- sum(!ii_rnaGTribo & ii_rnaGTpro)
+summary_table_rnaribo_rnapro_consistency[2, 1] <- 
+    sum(ii_riboGTrna) - sum(ii_riboGTrna & ii_proGTrna)
+summary_table_rnaribo_rnapro_consistency[2, 2] <- 
+    sum(ii_rnaGTribo) - sum(ii_rnaGTribo & ii_rnaGTpro)
 
 kable(summary_table_rnaribo_rnapro_consistency)
 ```
+
+
 
 
 
@@ -326,10 +266,8 @@ Note that we use one-proportion z-test instead of an exact binomial test
 because of the large sample size. In fact the results are the 
 
 ```{r}
-no_samples <- length(ii_sig_rnaribo & ii_sig_RNA_DE)
-prop_test_results <- prop.test(sum(ii_rnaGTribo), no_samples)
-
-prop_test_results
+no_samples <- sum(ii_sig_rnaribo)
+prop.test(sum(ii_rnaGTribo), no_samples)
 ```
 
 
@@ -351,7 +289,7 @@ Go here for a brief introduction to the two-proportion z-test: https://en.wikipe
 
 ```{r}
 ## Use a Humanzee function
-p_value <- PropTest(57/119, 1/22, N1 = 119, N = 22)
+p_value <- PropTest(84/369, 5/109, N1 = 369, N2 = 109)
 
 results <- c("p-value", p_value )
 

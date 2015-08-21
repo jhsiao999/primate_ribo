@@ -22,7 +22,6 @@ tagline: A comparative study of translation divergence
 
 
 
-
 ### Differential divergence analysis
 
 * RNA vs. Ribo divergence
@@ -46,14 +45,14 @@ tagline: A comparative study of translation divergence
 
 * Version-20150812
     * RNA vs. Ribo divergence
-        * [Gene classification](project/analysis/upcoming.html)
-        * [Sanity checks, relative to Ribo divergence](project/analysis/upcoming.html)
+        * [Gene classification](project/analysis/compare-ribo-rna-direction-20150812.html)
+        * [Sanity checks, relative to Ribo divergence](project/analysis/divergence-check-ribo-ref-20150812.html)
     * RNA vs. Protein divergence
-        * [Gene classification](project/analysis/upcoming.html)
-        * [Sanity check using RNA as the reference phenotype](project/analysis/upcoming.html)
+        * [Gene classification](project/analysis/compare-rna-pro-divergence-20150812.html)
+        * [Sanity check using RNA as the reference phenotype](project/analysis/divergence-check-pro-ref-20150812.html)
     * Attenuated regulatory divergence
-        * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/upcoming.html)
-        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/upcoming.html)
+        * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/translation-efficiency-protein-divergence-20150814.html)
+        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/translation-divergence-rna-protein-divergence-20150812.html)
 
 * Version-20150814
     * RNA vs. Ribo divergence 
