@@ -35,7 +35,7 @@ tagline: A comparative study of translation divergence
 ##### RNA vs. Ribo divergence
 
     - [Classifying genes](project/analysis/compare-ribo-rna-direction.html)
-    - [Sanity checks - relative to Ribo divergence](project/analysis/divergence-check-rna-ref.html)
+    - [Sanity checks, relative to Ribo divergence](project/analysis/divergence-check-rna-ref.html)
 
 ##### RNA vs. Protein divergence
 
@@ -54,7 +54,7 @@ tagline: A comparative study of translation divergence
 ##### RNA vs. Ribo divergence 
 
     - [Classifying genes](project/analysis/compare-ribo-rna-direction.html)
-    - [Sanity checks - relative to Ribo divergence](project/analysis/divergence-check-rna-ref.html)
+    - [Sanity checks, relative to Ribo divergence](project/analysis/divergence-check-rna-ref.html)
 
 ##### RNA vs. Protein divergence
 
