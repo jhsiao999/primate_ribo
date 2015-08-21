@@ -1,13 +1,13 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "Translation efficiency and protein divergence"
+    title: "RNA-Protein divergence conditioned on RNA-Ribo divergence"
     theme: default
 ---
 
 
-Translation efficiency and protein divergence
-=============================================
+RNA-Protein divergence conditioned on RNA-Ribo divergence
+=========================================================
 
 ```{r run_author, results='asis', echo=FALSE}
 email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
@@ -21,15 +21,17 @@ last_update <- Sys.time()
 cat(paste("Last updated:", last_update))
 ```
 
+[view source](translation-efficiency-protein-divergence-20150814.Rmd)
+
 
 ```{r knitr_settings, include=FALSE, echo=FALSE}
 library(knitr)
 opts_knit$set(progress = TRUE, verbose = TRUE)
-opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, echo = TRUE,
-              bootstrap.panel = FALSE, bootstrap.show.code = FALSE)
-#fig.width = 800/96, fig.height = 800/96, dpi = 96,
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, 
+               bootstrap.show.code = TRUE)
 ```
-
 
 
 
@@ -52,154 +54,284 @@ require(Humanzee)
 ```
 
 
-Human vs. Chimpanzee
-====================
+Goal
+=====
+
+Consider the set of genes with sig. difference in translation efficiency 
+between human and chimpanzee. We then take the set of genes with sig.
+difference between species at the RNA levels and categorize the gens into
+attenuation or enhancement at the translation level. Finally, we compute
+the proportion of genes attenuated at the protein levelamong the set of genes
+attenuated at the RNA level, and the proportion of genes enforced at protein
+level among the set of genes attenuated at the RNA level. 
+
+These analyses are for investigating whether divergence at the translation
+level is likely to be carried over to the protein level.
 
 
-```{r, bootstrap.show.code = TRUE}
+
+Definitions
+===========
+
+Of the genes with sig. inter-species differences in translation efficiency,
+we considered the genes with significant inter-species difference
+at the RNA level and classified these genes as follows
+
+1. Enhanced at Ribo
+
+    1.1 Of those enhanced at Ribo, No. of genes enhanced at protein
+   
+2. Attenuated at Ribo 
+
+    2.1 Of those attenuated at Ribo, No. of genes attenuated at protein
+   
+The definitions of enhancement and attenuation follows 
+Definition version-20150814. 
+   
+   
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
+
+## load LRT results of RNA vs. Ribo divergence
+load(file.path(rdadir,"TEnew.rda"))
+
 ## load LRT results of RNA vs. Protein divergence
 load(file.path(rdadir,"rnapro.rda"))
-
-## load LRT results of Ribo vs. RNA divergence
-load(file.path(rdadir,"TEnew.rda"))
 
 ## load LRT results of DE analysis
 load(file.path(rdadir,"DE.rda"))
 
+
 ## Compute fold changes based on un-normalized data
 ## from the object eSetRRP.log2 in eSetRRP.rda
-load(file.path(rdadir,"eSetRRP.rda"))
-eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
-fc.mat=lapply(seq_along(c("human","chimp")), function(i) {
-  ii = eSet.temp$species==c("human","chimp")[i]
-  eSet.tt = eSet.temp[,ii]
-  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
-    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
-    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
   })
-  emat=do.call(cbind,emat)
-  colnames(emat)=c("ribo","rna","protein")
-  return(data.frame(emat))
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
 })
-names(fc.mat)=c("human","chimp")
-dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
-                           rna=fc.mat$human$rna-fc.mat$chimp$rna,
-                           pro=fc.mat$human$protein-fc.mat$chimp$protein)
+names(fc.mat) <- c("human","chimp")
 
-xy.rnapro = data.frame(rna=dmat_unnormed$rna,
-                       pro=dmat_unnormed$pro)
-xy.riborna = data.frame(rna=dmat_unnormed$rna,
-                        ribo=dmat_unnormed$ribo)
-xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
-                        pro=dmat_unnormed$pro)
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
 ```
 
 
-## RNA-Ribo
 
-Only include genes that are sig. different between species in 
-translation efficiency
+## RNA vs. Ribo divergence
 
 ```{r}
-ii_sig_TE <- res.riborna$int.qval < .01
-```
+## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
 
+## Genes with sig. human/chimp difference in RNA levels
 ii_sig_RNA_DE <- rnaRes.Q$qval < .01
+
+## Genes with sig. human/chimp difference in Ribo levels
 ii_sig_Ribo_DE <- riboRes.Q$qval < .01
-```
-
-# sig. translation efficiency,
-# no sig. DE at RNA level & no sig. DE at Ribo level
-ii_TE_1 <- ii_sig_TE & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
-sum(ii_TE_1)
-
-# sig. translation efficiency, 
-# no sig. DE at RNA level but sig. DE at Ribo level
-ii_TE_2 <- (ii_sig_TE) & !ii_sig_RNA_DE & ii_sig_Ribo_DE
-sum(ii_TE_2)
-
-# sig. translation efficiency, 
-# sig. DE at RNA level
-# Enhanced divergence
-ii_riboGTrna <- 
-  (ii_sig_TE) & ii_sig_RNA_DE & 
-        ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
-        (xy.riborna$rna * xy.riborna$ribo > 0 ) )
-sum(ii_riboGTrna)
-
-# sig. translation efficiency, 
-# no sig. DE at RNA level but sig. DE at Ribo level
-# Attenuated divergence
-ii_rnaGTribo <- 
-  (ii_sig_TE) & ii_sig_RNA_DE & 
-        ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
-        (xy.riborna$rna * xy.riborna$ribo < 0) ) 
-sum(ii_rnaGTribo)
 
 
-
-## RNA-Protein
-
-# Attenuated divergence
-ii_rnaGTpro <- 
-  (res.rnapro$int.qval < .01) & ii_sig_RNA_DE & 
-    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
-    (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
-
-# Enhanced divegence
-ii_proGTrna <- 
-  (res.rnapro$int.qval < .01) & ii_sig_RNA_DE & 
-        ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
-        (xy.rnapro$rna * xy.rnapro$rna > 0 ) )
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo difference, AND
+## b) Sig. DE at RNA level, AND
+## c) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
+ii_riboGTrna <- (ii_sig_rnaribo) & ii_sig_RNA_DE & 
+                ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
+                  (xy.riborna$rna * xy.riborna$ribo > 0 ) )
 
 
-# Prop. of RNA-protein attenuated genes among RNA-Ribo attenuated genes
-sum(ii_rnaGTpro & ii_rnaGTribo)/sum(ii_rnaGTribo)
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) Sig. DE at RNA level, AND 
+## c) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
+ii_rnaGTribo <- (ii_sig_rnaribo) & ii_sig_RNA_DE & 
+                ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
+                  (xy.riborna$rna * xy.riborna$ribo < 0) ) 
 
 
-# Prop. of RNA-protein enhanced genes among RNA-Ribo enhanced genes
-sum(ii_proGTrna & ii_riboGTrna)/sum(ii_riboGTrna)
+## Category 3, Pseudo enhacement, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) Sig. DE at Ribo level
+ii_null_rnaGTribo <- ii_sig_rnaribo & !ii_sig_RNA_DE & ii_sig_Ribo_DE
+
+
+## Category 4, Null divergence, criteria are as follows
+## a) Sig. RNA vs. Ribo diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) No sig. DE at Ribo level
+ii_null_rnaNULLribo <- ii_sig_rnaribo & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
+
+
+Ribo_refmat <- rbind.data.frame(attenuated = sum(ii_rnaGTribo),
+                                   enhanced = sum(ii_riboGTrna),
+                                   null_enhanced = sum(ii_null_rnaGTribo),
+                                   null = sum(ii_null_rnaNULLribo) )
+colnames(Ribo_refmat) <- "# genes"
+kable(Ribo_refmat)
 ```
 
 
 
-## Tests
+## RNA vs. Protein divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+
+## Genes with sig. human/chimp difference in RNA levels
+ii_sig_RNA_DE <- rnaRes.Q$qval < .01
+
+## Genes with sig. human/chimp difference in Protein levels
+ii_sig_Pro_DE <- massRes.Q$qval < .01
 
 
-McNemar's chi-squared test to compare the proportion of genes with 
-attenuated translation versus enhanced translation (relative to RNA level)
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Protein difference, AND
+## b) Sig. DE at RNA level, AND
+## c) ( abs(RNA FC) < abs(Protein FC) ) AND ( RNA FC * Protein FC > 0)
+ii_proGTrna <- (ii_sig_rnapro) & ii_sig_RNA_DE & 
+               ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
+                 (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
+
+
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) Sig. DE at RNA level, AND 
+## c) ( abs(RNA FC) > abs(Protein FC) ) OR ( RNA FC * Protein FC < 0)
+ii_rnaGTpro <- (ii_sig_rnapro) & ii_sig_RNA_DE & 
+               ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
+                 (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
+
+
+## Category 3, Pseudo enhacement, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) Sig. DE at Protein level
+ii_null_rnaGTpro <- ii_sig_rnapro & !ii_sig_RNA_DE & ii_sig_Pro_DE
+
+
+## Category 4, Null divergence, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) No sig. DE at RNA level, AND 
+## c) No sig. DE at Protein level
+ii_null_rnaNULLprotein <- ii_sig_rnapro & !ii_sig_RNA_DE & !ii_sig_Pro_DE
+
+
+Protein_refmat <- rbind.data.frame( attenuated = sum(ii_rnaGTpro),
+                                    enhanced = sum(ii_proGTrna),
+                                    null_enhanced = sum(ii_null_rnaGTpro),
+                                    null = sum(ii_null_rnaNULLprotein) )
+colnames(Protein_refmat) <- "# genes"
+kable(Protein_refmat)
+```
+
+
+
+Gene classfication
+==================
 
 
 ```{r}
-mat_riborna <- matrix(0, 2, 2,
-                      dimnames = list(attenuation = c("yes", "no"),
-                                      enhancement = c("yes", "no") ) )
-mat_riborna[1,1] <- sum( (ii_riboGTrna) & (ii_rnaGTribo) )
-mat_riborna[2,2] <- sum( !(ii_riboGTrna) & !(ii_rnaGTribo) )
-mat_riborna[1,2] <- sum( (ii_riboGTrna) & !(ii_rnaGTribo) )
-mat_riborna[2,1] <-  sum( !(ii_riboGTrna) & (ii_rnaGTribo) )
+## TE refers to translation efficiency
+summary_table_rnaribo <- rbind.data.frame( 
+                             TE = sum(ii_sig_rnaribo),
+                             TE_rnaDE = sum(ii_sig_rnaribo & ii_sig_RNA_DE),
+                             TE_rnaDE_riboAttenuated = sum(ii_rnaGTribo),
+                             TE_rnaDE_riboEnhanced = sum(ii_proGTrna) )
+colnames(summary_table_rnaribo) <- "# genes"
+kable(summary_table_rnaribo)
 
-mcnemar.test(mat_riborna)
+## Of the genes with sig. translation efficiency
+## RNA-Ribo divergence versus RNA-protein divergence classification
+summary_table_rnaribo_rnapro <- matrix(0, 2, 2,
+                                    dimnames = list(rnaribo = c("rnaribo_ehanced",
+                                                                "rnaribo_attenuated"),
+                                                    rnapro = c("rnapro_enhanced",
+                                                               "rnapro_attenuated") ) )
+summary_table_rnaribo_rnapro[1, 1] <- sum(ii_riboGTrna & ii_proGTrna)
+summary_table_rnaribo_rnapro[1, 2] <- sum(ii_riboGTrna & ii_rnaGTpro)
+summary_table_rnaribo_rnapro[2, 1] <- sum(ii_rnaGTribo & ii_proGTrna)
+summary_table_rnaribo_rnapro[2, 2] <- sum(ii_rnaGTribo & ii_rnaGTpro)
+
+kable(summary_table_rnaribo_rnapro)
 ```
 
 
-Two-proportion z-test.
+
+## Significance tests
+
+### Test 1
+
+Compare the proportion of genes with attenuated translation versus 
+enhanced translation (relative to RNA level), of the genes with sig.
+difference in translation efficiency between human and chimp AND
+sig. differential expression at the RNA levels between human and chimp. 
+
+Null hypothesis is that the proportion of attenuated translation 
+and the proportion of enhanced translation relative to RNA level are
+not different, or equivalently, 50% of the genes of sig. translation 
+efficiency difference between human and chimp AND DE at the RNA levels
+are either attenuated or enhanced at the translation level.
+
+We propose to use a one-sample test of proportions to quantify the 
+statistical significant of the proportion of genes attenuated (or enhanced)
+at translation. 
+
+Go here for a brief introduction to the one-proportion z-test: https://en.wikipedia.org/wiki/Statistical_hypothesis_testing.
+
+Note that we use one-proportion z-test instead of an exact binomial test
+because of the large sample size. In fact the results are the 
+
+```{r}
+no_samples <- length(ii_sig_rnaribo & ii_sig_RNA_DE)
+prop_test_results <- prop.test(sum(ii_rnaGTribo), no_samples)
+
+prop_test_results
+```
+
+
+### Test 2
+
+Alternative hypothesis: the effect of translation efficiency is more likely to 
+be reflected at the protein level when translation is attenuated 
+relative to transcript levels than reinforced.
+
+Null hypothesis: Let p1 be the proportion of genes enhanced at protein level
+in the set of genes enhanced at the translation level, and p2 be the
+proportion of genes attenuated at translation level in the set of genes
+attenuated of translation level. Then, the null is p1 = p2, or equivalently,
+direction of protein divergence is consistent with direction of translation
+divergence.
+
+Go here for a brief introduction to the two-proportion z-test: https://en.wikipedia.org/wiki/Statistical_hypothesis_testing.
 
 
 ```{r}
-PropTest(57/119, 1/22, N1 = 119, N = 22)
+## Use a Humanzee function
+p_value <- PropTest(57/119, 1/22, N1 = 119, N = 22)
 
-## Make a data matrix for Fisher's exact test input
-mat_fish <- 
-  matrix(0, 2, 2, 
-  dimnames = list( rna_ribo = c("Attenuation", "Enhancement"),                              rna_pro = c("Attenuation", "Enhancement") ) )
-mat_fish[1,1] <- sum(ii_rnaGTribo & ii_rnaGTpro)
-mat_fish[2,2] <- sum(ii_riboGTrna & ii_proGTrna)
-mat_fish[1,2] <- sum(ii_rnaGTribo & ii_proGTrna)
-mat_fish[2,1] <- sum(ii_riboGTrna & ii_rnaGTpro)
+results <- c("p-value", p_value )
 
-## Two-proportion z-test
-PropTest(57/119, 1/22, N1 = 119, N = 22)
+kable( results )
 ```
 
 

@@ -30,30 +30,41 @@ tagline: A comparative study of translation divergence
 
 
 
+### Buffering
+
+* Version-20150101
+    * RNA vs. Ribo divergence
+        * [Gene classification](project/analysis/upcoming.html)
+    * RNA vs. Protein divergence
+        * [Gene classification](project/analysis/upcoming.html)
+    * Attenuated regulatory divergence
+        * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/upcoming.html)
+        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/upcoming.html)
+
 
 ### Attenuation or enhancement of divergence
 
-* Version 2015/08/12
+* Version-20150812
     * RNA vs. Ribo divergence
-        * [Gene classification](project/analysis/compare-ribo-rna-direction.html)
-        * [Sanity checks, relative to Ribo divergence](project/analysis/divergence-check-rna-ref.html)
+        * [Gene classification](project/analysis/upcoming.html)
+        * [Sanity checks, relative to Ribo divergence](project/analysis/upcoming.html)
     * RNA vs. Protein divergence
-        * [Gene classification](project/analysis/compare-rna-pro-divergence.html)
-        * [Sanity check using RNA as the reference phenotype](project/analysis/divergence-check-pro-ref-rna.html)
+        * [Gene classification](project/analysis/upcoming.html)
+        * [Sanity check using RNA as the reference phenotype](project/analysis/upcoming.html)
     * Attenuated regulatory divergence
-        * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/translation_efficiency_and_protein.html)
-        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/translation_and_attenuated_protein.html)
+        * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/upcoming.html)
+        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/upcoming.html)
 
-* Version 2015/8/14
+* Version-20150814
     * RNA vs. Ribo divergence 
-        * [Gene classfication](project/analysis/compare-ribo-rna-direction.html)
-        * [Sanity checks, relative to Ribo divergence](project/analysis/divergence-check-rna-ref.html)
+        * [Gene classfication](project/analysis/compare-ribo-rna-direction-20150814.html)
+        * [Sanity checks, relative to Ribo divergence](project/analysis/divergence-check-ribo-ref-20150814.html)
     * RNA vs. Protein divergence
-        * [Gene classification](project/analysis/compare-rna-pro-divergence.html)
-        * [Sanity check using RNA as the reference phenotype](project/analysis/divergence-check-pro-ref-rna.html)
+        * [Gene classification](project/analysis/compare-rna-pro-divergence-20150814.html)
+        * [Sanity check relative to Protein divergence](project/analysis/divergence-check-pro-ref-20150814.html)
     * Attenuated regulatory divergence
         * [RNA-protein divergence conditioned on RNA-Ribo divergence](project/analysis/translation-efficiency-protein-divergence-20150814.html)
-        * [RNA-Ribo divergence conditioned on RNA-protein divergence](project/analysis/translation_and_attenuated_protein_new_def.html)
+        * [RNA-Ribo divergence conditioned on RNA-protein divergence](project/analysis/translation-divergence-rna-protein-divergence-20150814.html)
 
 
 

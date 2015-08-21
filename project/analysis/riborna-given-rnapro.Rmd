@@ -323,9 +323,17 @@ title(main = "RNA ~ Protein, no sig. diff. divergence",
 
 ### Signal in RNA ~ Protein
 
-> Among the 408 genes with RNA and Ribo significant differences and no significant difference between RNA and protein, we do a follow-up analysis to look further to consider the contribution/relation of translation divergence to protein divergence, relative to RNA divergence. 
+> Among the 408 genes with RNA and Ribo significant differences and no 
+significant difference between RNA and protein, we do a follow-up analysis 
+to look further to consider the contribution/relation of translation divergence 
+to protein divergence, relative to RNA divergence. 
 
-> Yoav: So, for example, if gene 1 (among the 408 genes with sig. diff. between RNA and Ribo) shows attenuated translation relative to RNA, protein divergence will be attenuated relative to RNA divergence. If gene 2 (among the 408 genes with sig. diff. between RNA and Ribo) shows enhanced ribo divergence compared with RNA, I predict that the protein divergence will also be enhanced compared with RNA.
+> Yoav: So, for example, if gene 1 (among the 408 genes with sig. diff. 
+between RNA and Ribo) shows attenuated translation relative to RNA, protein 
+divergence will be attenuated relative to RNA divergence. If gene 2 (among the 
+408 genes with sig. diff. between RNA and Ribo) shows enhanced ribo divergence 
+compared with RNA, I predict that the protein divergence will also be enhanced 
+compared with RNA.
 
 
 ```{r}

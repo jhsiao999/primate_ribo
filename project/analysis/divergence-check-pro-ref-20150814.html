@@ -862,31 +862,20 @@
 </head>
 <body>
 <title>
-RNA vs. Ribo divergence
+Sanity check, relative to protein divergence
 </title>
 <div id="wrap">
 <div class="container">
 <div class="row row-offcanvas row-offcanvas-right">
 <div class="contents col-xs-12 col-md-10">
-<h1 id="rna-vs.-ribo-divergence">RNA vs. Ribo divergence</h1>
+<h1 id="sanity-check-relative-to-protein-divergence">Sanity check, relative to protein divergence</h1>
 <div class="row">
 Author: <a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>
 </div>
 <div class="row">
-Last updated: 2015-08-20 13:24:04
+Last updated: 2015-08-20 21:35:16
 </div>
-<p><a href="compare-ribo-rna-direction.Rmd">view source</a></p>
-<p>Compute the number of genes attenuated or enhanced at the Ribo level compared to the RNA level.</p>
-<h1 id="definitions">Definitions</h1>
-<p>The set of genes that are significant in inter-species difference of RNA vs. Ribo (translation efficiency) can be divided into two categories, and within each of the categories, the genes can further be divided into two subcategories as follows</p>
-<ol style="list-style-type: decimal">
-<li><p>No sig. inter-species difference in RNA</p>
-<p>1.1. No sig. inter-species difference in Ribo</p>
-<p>1.2. Sig. inter-species difference in Ribo</p></li>
-<li><p>Sig. inter-species difference in RNA</p>
-<p>2.1. ( abs(inter-species RNA FC) &gt; abs(inter-species Ribo FC) ) OR ( inter-species RNA FC and inter-species Ribo FC are of the opposite direction) - <strong>Attenuation at the Ribo level</strong></p>
-<p>2.2. ( abs(inter-species RNA FC) &lt; abs(inter-species Ribo FC) ) AND ( inter-species RNA FC and inter-species Ribo FC are of the same direction) - <strong>Enhancement at the Ribo level</strong></p></li>
-</ol>
+<p><a href="divergence-check-pro-ref-20150814.Rmd">view source</a></p>
 <div class="row">
 <div class="panel panel-primary">
 <div class="source R panel-heading toggle">
@@ -911,7 +900,18 @@ require(devtools)
 require(Humanzee)</code></pre>
 </div>
 </div>
-<p>Load rdas of LRT results and compute fold change estimates using RPKM values before quantile normalization.</p>
+<h1 id="goal">Goal</h1>
+<p>Count number of genes attenuated or enhanced at RNA level relative to protein leve.</p>
+<h1 id="definitions">Definitions</h1>
+<p>The set of genes that are significant in inter-species difference of RNA vs. Protein divergence can be divided into two categories, and within each of the categories, the genes can further be divided into two subcategories as follows</p>
+<ol style="list-style-type: decimal">
+<li><p>No sig. inter-species difference in Protein</p>
+<p>1.1. No sig. inter-species difference in RNA</p>
+<p>1.2. Sig. inter-species difference in RNA</p></li>
+<li><p>Sig. inter-species difference in Protein</p>
+<p>2.1. ( abs(inter-species Protein FC) &gt; abs(inter-species RNA FC) ) OR ( inter-species Protein FC and inter-species Ribo FC are of the opposite direction) - <strong>Attenuation at the RNA level</strong></p>
+<p>2.2. ( abs(inter-species Protein FC) &lt; abs(inter-species RNA FC) ) AND ( inter-species RNA FC and inter-species Protein FC are of the same direction) - <strong>Enhancement at the RNA level</strong></p></li>
+</ol>
 <div class="row">
 <div class="panel panel-primary">
 <div class="source R panel-heading toggle">
@@ -919,11 +919,11 @@ require(Humanzee)</code></pre>
 <span class="glyphicon glyphicon-chevron-down"></span> R source
 </h5>
 </div>
-<pre style=""><code class="source r">## load LRT results of RNA vs. Protein divergence
-load(file.path(rdadir,"rnapro.rda"))
+<pre style=""><code class="source r">## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
 
-## load LRT results of Ribo vs. RNA divergence
-load(file.path(rdadir,"TEnew.rda"))
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
 
 ## load LRT results of DE analysis
 load(file.path(rdadir,"DE.rda"))
@@ -931,30 +931,33 @@ load(file.path(rdadir,"DE.rda"))
 
 ## Compute fold changes based on un-normalized data
 ## from the object eSetRRP.log2 in eSetRRP.rda
-load(file.path(rdadir,"eSetRRP.rda"))
-eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
-fc.mat=lapply(seq_along(c("human","chimp")), function(i) {
-  ii = eSet.temp$species==c("human","chimp")[i]
-  eSet.tt = eSet.temp[,ii]
-  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
-    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
-    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
-  })
-  emat=do.call(cbind,emat)
-  colnames(emat)=c("ribo","rna","protein")
-  return(data.frame(emat))
-})
-names(fc.mat)=c("human","chimp")
-dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
-                           rna=fc.mat$human$rna-fc.mat$chimp$rna,
-                           pro=fc.mat$human$protein-fc.mat$chimp$protein)
+load( file.path(rdadir,"eSetRRP.rda") )
 
-xy.rnapro = data.frame(rna=dmat_unnormed$rna,
-                       pro=dmat_unnormed$pro)
-xy.riborna = data.frame(rna=dmat_unnormed$rna,
-                        ribo=dmat_unnormed$ribo)
-xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
-                        pro=dmat_unnormed$pro)</code></pre>
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )</code></pre>
 </div>
 </div>
 <p>Define subsets of genes at FDR &lt; .01.</p>
@@ -965,58 +968,53 @@ xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
 <span class="glyphicon glyphicon-chevron-down"></span> R source
 </h5>
 </div>
-<pre style=""><code class="source r">## Genes with sig. human/chimp difference in divergence between RNA and Ribo
-ii_sig_rnaribo <- res.riborna$int.qval < .01
+<pre style=""><code class="source r">## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
 
 ## Genes with sig. human/chimp difference in RNA levels
 ii_sig_RNA_DE <- rnaRes.Q$qval < .01
 
-## Genes with sig. human/chimp difference in Ribo levels
-ii_sig_Ribo_DE <- riboRes.Q$qval < .01
-
+## Genes with sig. human/chimp difference in Protein levels
+ii_sig_Pro_DE <- massRes.Q$qval < .01
 
 ## Category 1 - Enhanced divergence, criteria are as follows
-## a) Sig. RNA vs. Ribo difference, AND
-## b) Sig. DE at RNA level, AND
-## c) ( abs(RNA FC) < abs(Ribo FC) ) AND ( RNA FC * Ribo FC > 0)
-ii_riboGTrna <- 
-    (ii_sig_rnaribo) & ii_sig_RNA_DE & 
-    ( (abs(xy.riborna$ribo) > abs(xy.riborna$rna)) & 
-      (xy.riborna$rna * xy.riborna$ribo > 0 ) )
+## a) Sig. RNA vs. Protein difference, AND
+## b) Sig. diff. at Protein level, AND
+## c) ( abs(Protein FC) < abs(RNA FC) ) AND ( RNA FC * Protein FC > 0)
+iicheck_rnaGTpro <- (ii_sig_rnapro) & ii_sig_Pro_DE & 
+                    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro)) & 
+                      (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
 
 
 ## Category 2 - Attenuated divergence, criteria are as follows
-## a) Sig. RNA vs. Ribo diff., AND
-## b) Sig. DE at RNA level, AND 
-## c) ( abs(RNA FC) > abs(Ribo FC) ) AND ( RNA FC * Ribo FC < 0)
-ii_rnaGTribo <- 
-    (ii_sig_rnaribo) & ii_sig_RNA_DE & 
-    ( (abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) | 
-      (xy.riborna$rna * xy.riborna$ribo < 0) ) 
+## a) Sig. RNA vs. Protein diff., AND
+## b) Sig. DE at Protein level, AND 
+## c) ( abs(Protein FC) > abs(RNA FC) ) AND ( RNA FC * Protein FC < 0)
+iicheck_proGTrna <- (ii_sig_rnapro) & ii_sig_Pro_DE & 
+                    ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna) ) | 
+                      (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
 
 
 ## Category 3, Pseudo enhacement, criteria are as follows
-## a) Sig. RNA vs. Ribo diff., AND
-## b) No sig. DE at RNA level, AND 
-## c) Sig. DE at Ribo level
-ii_null_rnaGTribo <- 
-    ii_sig_rnaribo & !ii_sig_RNA_DE & ii_sig_Ribo_DE
+## a) Sig. RNA vs. Protein diff., AND
+## b) No sig. DE at Protein level, AND 
+## c) Sig. DE at RNA level
+iicheck_null_proGTrna <- ii_sig_rnapro & !ii_sig_Pro_DE & ii_sig_RNA_DE
 
 
 ## Category 4, Null divergence, criteria are as follows
-## a) Sig. RNA vs. Ribo diff., AND
+## a) Sig. RNA vs. Protein diff., AND
 ## b) No sig. DE at RNA level, AND 
-## c) No sig. DE at Ribo level
-ii_null_rnaNULLribo <- 
-    ii_sig_rnaribo & !ii_sig_RNA_DE & !ii_sig_Ribo_DE
+## c) No sig. DE at Protein level
+iicheck_null_proNULLrna <- ii_sig_rnapro & !ii_sig_RNA_DE & !ii_sig_Pro_DE
 
 
-Ribo_refmat <- rbind.data.frame(attenuated = sum(ii_rnaGTribo),
-                                   enhanced = sum(ii_riboGTrna),
-                                   null_enhanced = sum(ii_null_rnaGTribo),
-                                   null = sum(ii_null_rnaNULLribo) )
-colnames(Ribo_refmat) <- "# genes"
-Ribo_refmat</code></pre>
+RNA_refmat <- rbind.data.frame( attenuated = sum(iicheck_proGTrna),
+                                enhanced = sum(iicheck_rnaGTpro),
+                                null_enhanced = sum(iicheck_null_proGTrna),
+                                null = sum(iicheck_null_proNULLrna) )
+colnames(RNA_refmat) <- "# genes"
+RNA_refmat</code></pre>
 </div>
 <div class="panel panel-success">
 <div class="output R panel-heading toggle">
@@ -1025,10 +1023,10 @@ Ribo_refmat</code></pre>
 </h5>
 </div>
 <pre style=""><code class="output r">##               # genes
-## attenuated        119
-## enhanced           22
-## null_enhanced     222
-## null              115
+## attenuated         47
+## enhanced           10
+## null_enhanced     170
+## null               84
 </code></pre>
 </div>
 </div>

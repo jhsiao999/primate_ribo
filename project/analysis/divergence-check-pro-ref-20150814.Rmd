@@ -1,15 +1,16 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "Sanity check on RNA vs. Protein divergence results"
+    title: "Sanity check, relative to protein divergence"
     theme: default
     theme.chooser: TRUE
     highlight.chooser: TRUE
 ---
 
 
-Checking RNA vs. Protein divergence
-====================================
+Sanity check, relative to protein divergence
+============================================
+
 
 ```{r run_author, results='asis', echo=FALSE}
 email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
@@ -24,7 +25,7 @@ cat(paste("Last updated:", last_update))
 ```
 
 
-[view source](divergence-check-rna-ref.Rmd)
+[view source](divergence-check-pro-ref-20150814.Rmd)
 
 
 ```{r knitr_settings, include=FALSE, echo=FALSE}
@@ -32,10 +33,33 @@ library(knitr)
 opts_knit$set(progress = TRUE, verbose = TRUE)
 opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
                echo = TRUE,
-              bootstrap.panel = TRUE, 
-              bootstrap.show.code = TRUE)
+               bootstrap.panel = TRUE, 
+               bootstrap.show.code = TRUE)
 ```
 
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+Goal
+====
+
+Count number of genes attenuated or enhanced at RNA level relative to protein leve.
 
 
 Definitions
@@ -64,37 +88,12 @@ subcategories as follows
 
 
 
-```{r load_packages}
-library(Biobase)
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
 
-## Set working directories 
-dir <- "../"
-figdir <- file.path(dir,"figures")
-rdadir <- file.path(dir,"rdas")
-datadir <- file.path(dir, "data")
-
-## Use broman package for colors
-require(broman)
-crayon <- brocolors("crayons")
-
-## Load customized packages
-require(devtools)
-require(Humanzee)
-```
-
-
-
- 
-Load rdas of LRT results and compute fold change estimates using
-RPKM values before normalization. 
-
-
-```{r, bootstrap.show.code = TRUE}
 ## load LRT results of RNA vs. Protein divergence
 load(file.path(rdadir,"rnapro.rda"))
-
-## load LRT results of Ribo vs. RNA divergence
-load(file.path(rdadir,"TEnew.rda"))
 
 ## load LRT results of DE analysis
 load(file.path(rdadir,"DE.rda"))
@@ -102,30 +101,33 @@ load(file.path(rdadir,"DE.rda"))
 
 ## Compute fold changes based on un-normalized data
 ## from the object eSetRRP.log2 in eSetRRP.rda
-load(file.path(rdadir,"eSetRRP.rda"))
-eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
-fc.mat=lapply(seq_along(c("human","chimp")), function(i) {
-  ii = eSet.temp$species==c("human","chimp")[i]
-  eSet.tt = eSet.temp[,ii]
-  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
-    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
-    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
-  })
-  emat=do.call(cbind,emat)
-  colnames(emat)=c("ribo","rna","protein")
-  return(data.frame(emat))
-})
-names(fc.mat)=c("human","chimp")
-dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
-                           rna=fc.mat$human$rna-fc.mat$chimp$rna,
-                           pro=fc.mat$human$protein-fc.mat$chimp$protein)
+load( file.path(rdadir,"eSetRRP.rda") )
 
-xy.rnapro = data.frame(rna=dmat_unnormed$rna,
-                       pro=dmat_unnormed$pro)
-xy.riborna = data.frame(rna=dmat_unnormed$rna,
-                        ribo=dmat_unnormed$ribo)
-xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
-                        pro=dmat_unnormed$pro)
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
 ```
 
 
@@ -145,42 +147,38 @@ ii_sig_Pro_DE <- massRes.Q$qval < .01
 ## a) Sig. RNA vs. Protein difference, AND
 ## b) Sig. diff. at Protein level, AND
 ## c) ( abs(Protein FC) < abs(RNA FC) ) AND ( RNA FC * Protein FC > 0)
-iicheck_rnaGTpro <- 
-    (ii_sig_rnapro) & ii_sig_Pro_DE & 
-    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro)) & 
-      (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
+iicheck_rnaGTpro <- (ii_sig_rnapro) & ii_sig_Pro_DE & 
+                    ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro)) & 
+                      (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
 
 
 ## Category 2 - Attenuated divergence, criteria are as follows
 ## a) Sig. RNA vs. Protein diff., AND
 ## b) Sig. DE at Protein level, AND 
 ## c) ( abs(Protein FC) > abs(RNA FC) ) AND ( RNA FC * Protein FC < 0)
-iicheck_proGTrna <- 
-    (ii_sig_rnapro) & ii_sig_Pro_DE & 
-    ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna) ) | 
-      (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
+iicheck_proGTrna <- (ii_sig_rnapro) & ii_sig_Pro_DE & 
+                    ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna) ) | 
+                      (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
 
 
 ## Category 3, Pseudo enhacement, criteria are as follows
 ## a) Sig. RNA vs. Protein diff., AND
 ## b) No sig. DE at Protein level, AND 
 ## c) Sig. DE at RNA level
-iicheck_null_proGTrna <- 
-    ii_sig_rnapro & !ii_sig_Pro_DE & ii_sig_RNA_DE
+iicheck_null_proGTrna <- ii_sig_rnapro & !ii_sig_Pro_DE & ii_sig_RNA_DE
 
 
 ## Category 4, Null divergence, criteria are as follows
 ## a) Sig. RNA vs. Protein diff., AND
 ## b) No sig. DE at RNA level, AND 
 ## c) No sig. DE at Protein level
-iicheck_null_proNULLrna <- 
-    ii_sig_rnapro & !ii_sig_RNA_DE & !ii_sig_Pro_DE
+iicheck_null_proNULLrna <- ii_sig_rnapro & !ii_sig_RNA_DE & !ii_sig_Pro_DE
 
 
-RNA_refmat <- rbind.data.frame(attenuated = sum(iicheck_proGTrna),
-                               enhanced = sum(iicheck_rnaGTpro),
-                               null_enhanced = sum(iicheck_null_proGTrna),
-                               null = sum(iicheck_null_proNULLrna) )
+RNA_refmat <- rbind.data.frame( attenuated = sum(iicheck_proGTrna),
+                                enhanced = sum(iicheck_rnaGTpro),
+                                null_enhanced = sum(iicheck_null_proGTrna),
+                                null = sum(iicheck_null_proNULLrna) )
 colnames(RNA_refmat) <- "# genes"
 RNA_refmat
 ```
