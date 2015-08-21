@@ -4,28 +4,36 @@ title: "primate_ribo"
 tagline: A comparative study of translation divergence
 ---
 
-\* Comment \*
+
 
 ### Preprocessing
 
-- [Normalization](project/analysis/upcoming.html)
-- [Filtering](project/analysis/upcoming.html)
+* [Normalization](project/analysis/upcoming.html)
+
+* [Filtering](project/analysis/upcoming.html)
+
+
 
 
 
 ### Differential expression analysis
 
-- [Ribosome profiling](project/analysis/DE-ribo.html)
-- [RNA and mass spectrometry](project/analysis/upcoming.html)
-- [For the 3,188 genes quantified in all 3 phenotypes](project/analysis/upcoming.html)
+* [Ribosome profiling](project/analysis/DE-ribo.html)
+
+* [RNA and mass spectrometry](project/analysis/upcoming.html)
+
+* [For the 3,188 genes quantified in all 3 phenotypes](project/analysis/upcoming.html)
+
+
 
 
 
 ### Differential divergence analysis
 
-####  RNA vs. Ribo divergence
+* RNA vs. Ribo divergence
 
-   - [Translation efficiency analysis](project/analysis/compare-ribo-rna-divergence.html)
+  * [Translation efficiency analysis](project/analysis/compare-ribo-rna-divergence.html)
+
 
 
 
@@ -70,5 +78,6 @@ tagline: A comparative study of translation divergence
 
 ### Manuscript figures
 
-- [Main figures](upcoming.html)
-- [Supplemental Figures](upcoming.html)
+* [Main figures](upcoming.html)
+
+* [Supplemental Figures](upcoming.html)
