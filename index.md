@@ -41,7 +41,7 @@ tagline: A comparative study of translation divergence
 
 ### Attenuation or enhancement of divergence
 
-* Version 2015/08/12
+##### Version 2015/08/12
 
   * RNA vs. Ribo divergence
     * [Classifying genes](project/analysis/compare-ribo-rna-direction.html)
@@ -57,7 +57,7 @@ tagline: A comparative study of translation divergence
     * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/translation_and_attenuated_protein.html)
 
 
-* Version 2015/8/14
+##### Version 2015/8/14
 
   * RNA vs. Ribo divergence 
     * [Classifying genes](project/analysis/compare-ribo-rna-direction.html)
