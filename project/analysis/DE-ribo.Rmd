@@ -1333,3 +1333,11 @@ text(5.5,2,label=sum(mat[,2] & mat[,1]))
 ```
 
 
+
+
+Session information
+===================
+
+```{r}
+sessionInfo()
+```

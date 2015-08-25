@@ -536,4 +536,10 @@ binom.test( sum(ii_proGTrna*ii_riboGTrna),
 ```
 
 
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
 

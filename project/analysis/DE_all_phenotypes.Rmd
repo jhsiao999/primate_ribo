@@ -847,3 +847,12 @@ text(1.5,2.2,label=paste(sum(massRes.Q.all$qval<.01,na.rm=T),"genes < .01"),adj=
 title("Relative RPKM, quantile normalized across data types",line=-0.5)
 title("Protein expression levels",outer=TRUE,line=-1)
 ```
+
+
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
+

@@ -359,3 +359,12 @@ kable( results )
 ```
 
 
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
+
+
+
