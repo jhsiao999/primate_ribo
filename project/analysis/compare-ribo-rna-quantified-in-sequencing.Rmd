@@ -69,9 +69,8 @@ of genes that are quantified across all three phenotypes.
 
 
 
-Human versus Chimp
-==================
-
+Inter-species comparisons
+=========================
 
 We used a likelihood ratio test to compare species divergence 
 at the Ribo level versus at the RNA level.
@@ -125,17 +124,54 @@ load(file.path(rdadir, "TE_full.rda"))
 
 ngenes <- dim(res.riborna_full_human_chimp)[1]
 
-sig_genes <- 
-    data.frame(total_genes = ngenes,
-               human_chimp = sum(res.riborna_full_human_chimp$int.qval < .01),
-               human_rhesus = sum(res.riborna_full_human_rhesus$int.qval < .01),
-               chimp_rhesus = sum(res.riborna_full_chimp_rhesus$int.qval < .01) )
+# Check the number of genes for which
+# the likelihood ratio test statistic can not be computed
 
+na_mat <- data.frame(total_genes = ngenes,
+                     human_chimp_na = sum(is.na(res.riborna_full_human_chimp$int.pval)),
+                     human_rhesus_na = sum(is.na(res.riborna_full_human_rhesus$int.pval)),
+                     chimp_rhesus_na = sum(is.na(res.riborna_full_chimp_rhesus$int.pval)) )
+kable(na_mat)
+```
+
+
+Exclude the two NA genes.
+
+```{r}
+ii_exclude_genes <- is.na(res.riborna_full_human_rhesus$int.pval)
+
+exprs(eSetRPKM.Q.log2)[which(ii_exclude_genes), ]
+```
+
+
+
+```{r}
+sig_genes <- 
+    data.frame(total_genes = ngenes - sum(ii_exclude_genes),
+               human_chimp = sum(res.riborna_full_human_chimp$int.qval[
+                                which(!ii_exclude_genes)] < .01, na.rm = TRUE),
+               human_rhesus = sum(res.riborna_full_human_rhesus$int.qval[
+                                which(!ii_exclude_genes)] < .01, na.rm = TRUE),
+               chimp_rhesus = sum(res.riborna_full_chimp_rhesus$int.qval[
+                                which(!ii_exclude_genes)] < .01, na.rm = TRUE) )
 kable(sig_genes)
 ```
 
 
 
+p-value distributions
+=====================
+
+```{r}
+par(mfrow = c(2,2))
+plot_list <- list(human_chimp = res.riborna_full_human_chimp$int.pval,
+                  chimp_rhesus = res.riborna_full_chimp_rhesus$int.pval,
+                  human_rhesus = res.riborna_full_human_rhesus$int.pval)
+for (i in 1: length(plot_list)) {
+  hist(plot_list[[i]], xlab = "p-value", main = names(plot_list)[i] )
+}
+
+```
 
 
 
