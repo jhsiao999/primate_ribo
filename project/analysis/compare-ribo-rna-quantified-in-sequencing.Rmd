@@ -1,0 +1,150 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Compare transcript divergence with translation divergence - 
+            including genes that may not be quantified in Mass Spec data "
+    theme: default
+    theme.chooser: TRUE
+    highlight.chooser: TRUE
+---
+
+
+Differential divergence analysis
+=================================
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+[view source](compare-ribo-rna-quantified-in-sequencing.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+
+Goal
+====
+
+We analyzed all three pairwise species comparisons of translation efficiency
+using a set of genes that may not be quantified in Mass Spectrometry data. 
+This step is to investigate and ascertain results obtained from a smaller set 
+of genes that are quantified across all three phenotypes.
+
+
+
+Human versus Chimp
+==================
+
+
+We used a likelihood ratio test to compare species divergence 
+at the Ribo level versus at the RNA level.
+
+
+```{r, eval = F}
+
+# Load rdas of genes quantified in RNA and Ribo
+# eSetRPKM: RPKM values 
+# eSetGM: RPKM values relative to the standard cell line
+# eSetRPKM.Q and eSetGM.Q: data quantile-normalized within each data type
+load(file.path(rdadir,"normeddatasub.rda"))
+
+
+# log transform the RPKM values
+emat <- exprs(eSetRPKM.Q)
+emat.log2 <- log2(emat)
+eSetRPKM.Q.log2 <- ExpressionSet(assayData = emat.log2,
+                            phenoData = phenoData(eSetRPKM.Q),
+                            experimentData = experimentData(eSetRPKM.Q) )
+featureData(eSetRPKM.Q.log2) <- featureData(eSetRPKM.Q)                  
+
+
+# Compare human and chimp
+eset_human_chimp <- eSetRPKM.Q.log2[ ,eSetRPKM.Q.log2$species != "rhesus"]
+res.riborna_full_human_chimp <- interact2way(eset_human_chimp)
+
+# Compare chimp and rhesus
+eset_chimp_rhesus <- eSetRPKM.Q.log2[ ,eSetRPKM.Q.log2$species != "human"]
+res.riborna_full_chimp_rhesus <- interact2way(eset_chimp_rhesus)
+
+# Compare human and rhesus
+eset_human_rhesus <- eSetRPKM.Q.log2[ ,eSetRPKM.Q.log2$species != "chimp"]
+res.riborna_full_human_rhesus <- interact2way(eset_human_rhesus)
+
+save(eSetRPKM.Q.log2,
+     res.riborna_full_human_chimp,
+     res.riborna_full_chimp_rhesus,
+     res.riborna_full_human_rhesus, 
+     file = file.path(rdadir,"TE_full.rda"))
+```
+
+
+The genes with significant interaction effect at FDR < .01 are considered
+as significant in species difference between RNA and Ribo, or equivalently,
+species difference in translation efficiency. 
+
+
+```{r}
+load(file.path(rdadir, "TE_full.rda"))
+
+ngenes <- dim(res.riborna_full_human_chimp)[1]
+
+sig_genes <- 
+    data.frame(total_genes = ngenes,
+               human_chimp = sum(res.riborna_full_human_chimp$int.qval < .01),
+               human_rhesus = sum(res.riborna_full_human_rhesus$int.qval < .01),
+               chimp_rhesus = sum(res.riborna_full_chimp_rhesus$int.qval < .01) )
+
+kable(sig_genes)
+```
+
+
+
+
+
+
+
+
+Session information
+====================
+
+```{r}
+sessionInfo()
+```
+

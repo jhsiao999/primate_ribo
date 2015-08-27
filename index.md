@@ -23,8 +23,10 @@ tagline: A comparative study of translation divergence
 
 ### Differential divergence analysis
 
-* RNA vs. Ribo divergence
-    * [Translation efficiency analysis](project/analysis/compare-ribo-rna-divergence.html)
+* RNA vs. Ribo divergence (translation efficiency comparisons)
+    * [Of 3,188 genes quantified in all three phenotypes](project/analysis/compare-ribo-rna-divergence.html)
+    * [Of 8,572 genes quantified in RNA and Ribo](project/analysis/compare-ribo-rna-quantified-in-sequencing.html)
+
 
 
 
@@ -67,5 +69,5 @@ tagline: A comparative study of translation divergence
 
 ### Manuscript figures
 
-* [Main figures](upcoming.html)
-* [Supplemental Figures](upcoming.html)
+* [Main figures](project/analysis/upcoming.html)
+* [Supplemental Figures](project/analysis/upcoming.html)
