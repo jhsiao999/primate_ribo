@@ -12,7 +12,6 @@ tagline: A comparative study of translation divergence
 
 
 
-
 ### Differential expression analysis
 
 * [Ribosome profiling](project/analysis/DE-ribo.html)
@@ -29,7 +28,6 @@ tagline: A comparative study of translation divergence
 
 
 
-
 ### Buffering
 
 * Version-20150101
@@ -37,7 +35,7 @@ tagline: A comparative study of translation divergence
         * [Gene classification](project/analysis/rna-ribo-pro-buffering.html)
     * Attenuated regulatory divergence
         * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/TE-genes-ribo-pro-buffering.html)
-        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/upcoming.html)
+        * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/buffering-rna-pro-v2.html)
 
 
 ### Attenuation or enhancement of divergence

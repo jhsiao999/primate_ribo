@@ -873,7 +873,7 @@ RNA-Protein divergence conditioned on RNA-Ribo divergence
 Author: <a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>
 </div>
 <div class="row">
-Last updated: 2015-08-25 11:10:20
+Last updated: 2015-08-27 13:16:04
 </div>
 <p><a href="TE-genes-ribo-pro-buffering.Rmd">view source</a></p>
 <div class="row">
@@ -1114,6 +1114,70 @@ kable(buffering_matrix_interact)</code></pre>
 </tbody>
 </table>
 </div>
+<h3 id="sig.-testing">Sig. testing</h3>
+<p>Of the genes with sig. translation efficiency difference between species and also sig. RNA-protein interaction, we consider the set of genes that were buffered at the Ribo level and test the null hypothesis that among these genes are as likely to be buffered at the protein level as to be non-buffered (null proportion = .5)</p>
+<div class="row">
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">prop.test(buffering_matrix_interact[1,1],
+          buffering_matrix_interact[1,1] + buffering_matrix_interact[1,2],
+          p = .5)</code></pre>
+</div>
+<div class="panel panel-success">
+<div class="output R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R output
+</h5>
+</div>
+<pre style=""><code class="output r">## 
+##  1-sample proportions test with continuity correction
+## 
+## data:  buffering_matrix_interact[1, 1] out of buffering_matrix_interact[1, 1] + buffering_matrix_interact[1, , null probability 0.5buffering_matrix_interact[1, 1] out of     2], null probability 0.5
+## X-squared = 49.424, df = 1, p-value = 2.062e-12
+## alternative hypothesis: true p is not equal to 0.5
+## 95 percent confidence interval:
+##  0.8725296 0.9941068
+## sample estimates:
+##         p 
+## 0.9661017
+</code></pre>
+</div>
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">binom.test(buffering_matrix_interact[1,1],
+          buffering_matrix_interact[1,1] + buffering_matrix_interact[1,2],
+          p = .5)</code></pre>
+</div>
+<div class="panel panel-success">
+<div class="output R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R output
+</h5>
+</div>
+<pre style=""><code class="output r">## 
+##  Exact binomial test
+## 
+## data:  buffering_matrix_interact[1, 1] and buffering_matrix_interact[1, 1] + buffering_matrix_interact[1, buffering_matrix_interact[1, 1] and     2]
+## number of successes = 57, number of trials = 59, p-value =
+## 6.144e-15
+## alternative hypothesis: true probability of success is not equal to 0.5
+## 95 percent confidence interval:
+##  0.8828515 0.9958681
+## sample estimates:
+## probability of success 
+##              0.9661017
+</code></pre>
+</div>
+</div>
+<h3 id="plots">Plots</h3>
 <p>For genes buffered at the Ribo level compared to the RNA level, plot out per gene effect sizes of RNA and protein for genes that are buffered at protein, non-buffered at protein and that do not have significant interaction between RNA and protein.</p>
 <div class="row">
 <div class="panel panel-primary">
@@ -1357,6 +1421,70 @@ kable(buffering_matrix_size)</code></pre>
 </tbody>
 </table>
 </div>
+<h3 id="sig.-testing-1">Sig. testing</h3>
+<p>Of the genes with sig. translation efficiency difference between species, we consider the set of genes that were buffered at the Ribo level and test the null hypothesis that among these genes are as likely to be buffered at the protein level as to be non-buffered (null proportion = .5)</p>
+<div class="row">
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">prop.test(buffering_matrix_size[1,1],
+          buffering_matrix_size[1,1] + buffering_matrix_size[1,2],
+          p = .5)</code></pre>
+</div>
+<div class="panel panel-success">
+<div class="output R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R output
+</h5>
+</div>
+<pre style=""><code class="output r">## 
+##  1-sample proportions test with continuity correction
+## 
+## data:  buffering_matrix_size[1, 1] out of buffering_matrix_size[1, 1] + buffering_matrix_size[1, 2], null probability 0.5
+## X-squared = 166.64, df = 1, p-value < 2.2e-16
+## alternative hypothesis: true p is not equal to 0.5
+## 95 percent confidence interval:
+##  0.9356761 0.9901679
+## sample estimates:
+##         p 
+## 0.9734043
+</code></pre>
+</div>
+<div class="panel panel-primary">
+<div class="source R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R source
+</h5>
+</div>
+<pre style=""><code class="source r">binom.test(buffering_matrix_size[1,1],
+          buffering_matrix_size[1,1] + buffering_matrix_size[1,2],
+          p = .5)</code></pre>
+</div>
+<div class="panel panel-success">
+<div class="output R panel-heading toggle">
+<h5 class="panel-title">
+<span class="glyphicon glyphicon-chevron-down"></span> R output
+</h5>
+</div>
+<pre style=""><code class="output r">## 
+##  Exact binomial test
+## 
+## data:  buffering_matrix_size[1, 1] and buffering_matrix_size[1, 1] + buffering_matrix_size[1, 2]
+## number of successes = 183, number of trials = 188, p-value <
+## 2.2e-16
+## alternative hypothesis: true probability of success is not equal to 0.5
+## 95 percent confidence interval:
+##  0.9390288 0.9913092
+## sample estimates:
+## probability of success 
+##              0.9734043
+</code></pre>
+</div>
+</div>
+<h3 id="plots-1">Plots</h3>
 <p>For genes buffered at the Ribo level compared to the RNA level, plot out per gene effect sizes of RNA and protein for genes that are buffered at protein and non-buffered at protein.</p>
 <div class="row">
 <div class="panel panel-primary">

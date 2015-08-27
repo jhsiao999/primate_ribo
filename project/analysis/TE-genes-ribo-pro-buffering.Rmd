@@ -246,6 +246,29 @@ kable(buffering_matrix_interact)
 ```
 
 
+### Sig. testing
+
+Of the genes with sig. translation efficiency difference between species and
+also sig. RNA-protein interaction, we consider the set of genes
+that were buffered at the Ribo level and test the null hypothesis
+that among these genes are as likely to be buffered at the protein
+level as to be non-buffered (null proportion = .5)
+
+```{r}
+
+prop.test(buffering_matrix_interact[1,1],
+          buffering_matrix_interact[1,1] + buffering_matrix_interact[1,2],
+          p = .5)
+
+
+binom.test(buffering_matrix_interact[1,1],
+          buffering_matrix_interact[1,1] + buffering_matrix_interact[1,2],
+          p = .5)
+
+```
+
+
+### Plots
 
 For genes buffered at the Ribo level compared to the RNA level, 
 plot out per gene effect sizes of RNA and protein for genes
@@ -454,6 +477,29 @@ kable(buffering_matrix_size)
 
 
 
+### Sig. testing
+
+Of the genes with sig. translation efficiency difference between species, 
+we consider the set of genes
+that were buffered at the Ribo level and test the null hypothesis
+that among these genes are as likely to be buffered at the protein
+level as to be non-buffered (null proportion = .5)
+
+```{r}
+
+prop.test(buffering_matrix_size[1,1],
+          buffering_matrix_size[1,1] + buffering_matrix_size[1,2],
+          p = .5)
+
+
+binom.test(buffering_matrix_size[1,1],
+          buffering_matrix_size[1,1] + buffering_matrix_size[1,2],
+          p = .5)
+
+```
+
+
+### Plots
 For genes buffered at the Ribo level compared to the RNA level, 
 plot out per gene effect sizes of RNA and protein for genes
 that are buffered at protein and  non-buffered at protein.

@@ -1,0 +1,297 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "RNA-Ribo divergence conditioned on RNA-Protein divergence"
+    theme: default
+---
+
+
+RNA-Ribo divergence conditioned on RNA-Protein divergence
+===========================================================
+
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+Goal
+====
+
+Here we consider a set of genes with sig. RNA-protein interaction and 
+investigate the contribution of buffering at the translation level
+to the protein level. Two approaches are discussed
+
+
+Gene classification
+===================
+
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
+
+## load LRT results of RNA vs. Ribo divergence
+load(file.path(rdadir,"TEnew.rda"))
+
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
+```
+
+
+
+## RNA vs. Ribo divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
+
+## Genes with RNA > Ribo in effect sizes
+ii_rnaGTribo <- abs(xy.riborna$rna) > abs(xy.riborna$ribo)
+
+## Genes with RNA < Ribo in effect sizes
+ii_riboGTrna <- abs(xy.riborna$ribo) > abs(xy.riborna$rna)
+```
+
+
+## RNA vs. Protein divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+
+## Genes with RNA > Protein in effect sizes
+ii_rnaGTpro <- abs(xy.rnapro$rna) > abs(xy.rnapro$pro)
+
+## Genes with RNA < Protein in effect sizes
+ii_proGTrna <- abs(xy.rnapro$pro) > abs(xy.rnapro$rna)
+```
+
+
+
+Interaction approach
+====================
+
+**Interaction appoach**: take the set of genes with sig. RNA-protein interaction, 
+select a subset of genes with sig. RNA-ribo interaction. Then, we divided the
+genes into two categories
+
+    * Buffered at the protein level: abs(RNA fold change) > abs(Protein fold change)
+    * Non-Buffered at the protein level: abs(RNA fold change) < abs(Protein fold change)
+
+
+```{r}
+interact_mat <- 
+    matrix(0, 3, 4, dimnames = list(c("Protein bufferd (& sig. RNA-protein)", 
+                                  "Protein non-buffered (& sig. RNA-protein)",
+                                  "No sig. RNA-Protein interaction"),
+                                c("Ribo buffered (& sig. RNA-Ribo)",
+                                  "Ribo non-buffered (& sig. RNA-Ribo)",
+                                  "No sig. RNA-Ribo interaction",
+                                  "Row sum")))
+
+interact_mat[1,4] <- sum(ii_sig_rnapro & ii_rnaGTpro)
+interact_mat[2,4] <- sum(ii_sig_rnapro & ii_proGTrna)
+interact_mat[3,4] <- sum(!ii_sig_rnapro)
+
+interact_mat[1,1] <- sum(ii_sig_rnapro & ii_rnaGTpro &
+                         ii_sig_rnaribo & ii_rnaGTribo)
+interact_mat[1,2] <- sum(ii_sig_rnapro & ii_rnaGTpro &
+                         ii_sig_rnaribo & ii_riboGTrna)
+interact_mat[1,3] <- sum(ii_sig_rnapro & ii_rnaGTpro &
+                         !ii_sig_rnaribo)
+
+interact_mat[2,1] <- sum(ii_sig_rnapro & ii_proGTrna &
+                           ii_sig_rnaribo & ii_rnaGTribo)
+interact_mat[2,2] <- sum(ii_sig_rnapro & ii_proGTrna &
+                           ii_sig_rnaribo & ii_riboGTrna)
+interact_mat[2,3] <- sum(ii_sig_rnapro & ii_proGTrna &
+                           !ii_sig_rnaribo)
+
+interact_mat[3,1] <- sum(!ii_sig_rnapro & 
+                           ii_sig_rnaribo & ii_rnaGTribo)
+interact_mat[3,2] <- sum(!ii_sig_rnapro &
+                           ii_sig_rnaribo & ii_riboGTrna)
+interact_mat[3,3] <- sum(!ii_sig_rnapro & 
+                           !ii_sig_rnaribo)
+
+kable(interact_mat)
+```
+
+
+
+Consider among the ``r sum(ii_sig_rnapro & ii_rnaGTpro & ii_sig_rnaribo)`` genes
+with significant RNA-protein interaction that are buffered at the protein level 
+and with significant RNA-Ribo interaction, we test the null hypothesis that 
+these genes are as likely to be buffered and to be non-buffered at the Ribo 
+level.
+
+We will compute the expected number of genes using the set of genes that have
+no significant interaction between RNA and Protein.
+
+
+```{r}
+# Compute the number of genes in the null set
+ii_null_rnapro_buff <- !ii_sig_rnapro & ii_rnaGTpro & ii_sig_rnaribo
+
+# Compute the number of genes that are buffered at the Ribo level
+ii_null_rnapro_buff_ribo <- !ii_sig_rnapro & ii_rnaGTpro & 
+                            ii_sig_rnaribo & ii_rnaGTribo
+  
+
+prop.test(interact_mat[1,1], interact_mat[1,1] + interact_mat[1,2],
+           p = sum(ii_null_rnapro_buff_ribo)/sum(ii_null_rnapro_buff) )
+
+binom.test(interact_mat[1,1], interact_mat[1,1] + interact_mat[1,2],
+           p = sum(ii_null_rnapro_buff_ribo)/sum(ii_null_rnapro_buff) )
+```
+
+
+
+Size approach
+====================
+
+**Size approach**: take the set of genes with sig. RNA-protein interaction. Then, we divided the genes into two categories
+
+    * Buffered at the protein level: abs(RNA fold change) > abs(Protein fold change)
+    * Non-Buffered at the protein level: abs(RNA fold change) < abs(Protein fold change)
+
+
+```{r}
+size_mat <- 
+    matrix(0, 3, 3, dimnames = list(c("Protein bufferd (& sig. RNA-protein)", 
+                                  "Protein non-buffered (& sig. RNA-protein)",
+                                  "No sig. RNA-Protein interaction"),
+                                c("Ribo buffered (& sig. RNA-Ribo)",
+                                  "Ribo non-buffered (& sig. RNA-Ribo)",
+                                  "Row sum")))
+
+size_mat[1,1] <- sum(ii_sig_rnapro & ii_rnaGTpro &
+                         ii_rnaGTribo)
+size_mat[1,2] <- sum(ii_sig_rnapro & ii_rnaGTpro &
+                         ii_riboGTrna)
+size_mat[1,3] <- sum(ii_sig_rnapro & ii_rnaGTpro)
+
+size_mat[2,1] <- sum(ii_sig_rnapro & ii_proGTrna &
+                           ii_rnaGTribo)
+size_mat[2,2] <- sum(ii_sig_rnapro & ii_proGTrna &
+                           ii_riboGTrna)
+size_mat[2,3] <- sum(ii_sig_rnapro & ii_proGTrna)
+
+size_mat[3,1] <- sum(!ii_sig_rnapro & 
+                           ii_rnaGTribo)
+size_mat[3,2] <- sum(!ii_sig_rnapro &
+                           ii_riboGTrna)
+size_mat[3,3] <- sum(!ii_sig_rnapro)
+
+kable(size_mat)
+```
+
+
+
+Consider among the ``r sum(ii_sig_rnapro & ii_rnaGTpro)`` genes
+with significant RNA-protein interaction that are buffered at the protein level, 
+we test the null hypothesis that 
+these genes are as likely to be buffered and to be non-buffered at the Ribo 
+level.
+
+We will compute the expected number of genes using the set of genes that have
+no significant interaction between RNA and Protein.
+
+
+```{r}
+# Compute the number of genes in the null set
+ii_null_rnapro_buff_size <- !ii_sig_rnapro & ii_rnaGTpro
+
+# Compute the number of genes that are buffered at the Ribo level
+ii_null_rnapro_buff_size_ribo <- !ii_sig_rnapro & ii_rnaGTpro &
+                                   ii_rnaGTribo
+  
+
+prop.test(size_mat[1,1], size_mat[1,1] + size_mat[1,2],
+           p = sum(ii_null_rnapro_buff_size_ribo)/
+               sum(ii_null_rnapro_buff_size) )
+
+binom.test(size_mat[1,1], size_mat[1,1] + size_mat[1,2],
+           p = sum(ii_null_rnapro_buff_size_ribo)/
+               sum(ii_null_rnapro_buff_size) )
+```
+
+
+
+
+
+
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
+
