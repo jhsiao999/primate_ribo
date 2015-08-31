@@ -170,8 +170,56 @@ plot_list <- list(human_chimp = res.riborna_full_human_chimp$int.pval,
 for (i in 1: length(plot_list)) {
   hist(plot_list[[i]], xlab = "p-value", main = names(plot_list)[i] )
 }
-
 ```
+
+
+
+
+q-value distributions
+=====================
+
+```{r}
+par(mfrow = c(2,2))
+plot_list <- list(human_chimp = res.riborna_full_human_chimp$int.qval,
+                  chimp_rhesus = res.riborna_full_chimp_rhesus$int.qval,
+                  human_rhesus = res.riborna_full_human_rhesus$int.qval)
+for (i in 1: length(plot_list)) {
+  hist(plot_list[[i]], xlab = "q-value", main = names(plot_list)[i] )
+}
+```
+
+
+
+
+BH-adjusted p-value distributions
+=================================
+
+```{r}
+par(mfrow = c(2,2))
+plot_list <- list(human_chimp = p.adjust(res.riborna_full_human_chimp$int.pval,
+                                         method = "hochberg"),
+                  chimp_rhesus = p.adjust(res.riborna_full_chimp_rhesus$int.pval,
+                                          method = "hochberg"),
+                  human_rhesus = p.adjust(res.riborna_full_human_rhesus$int.pval,
+                                          method = "hochberg") )
+for (i in 1: length(plot_list)) {
+  hist(plot_list[[i]], xlab = "BH adjusted p-value", main = names(plot_list)[i] )
+}
+
+# human vs. chimp BH adjusted p-values
+summary(plot_list[[1]]) 
+
+# chimp vs. rhesus BH adjusted p-values
+summary(plot_list[[2]]) 
+
+# human vs. rhesus
+summary(plot_list[[3]]) 
+```
+
+
+
+
+
 
 
 
