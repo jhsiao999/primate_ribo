@@ -1,4 +1,10 @@
-Copyright (C) 2015 Chiaowen Joyce Hsiao, Sidney Wang, and Yoav Gilad
+---
+layout: page
+title: about
+description: 
+---
+
+Copyright (C) 2015 Sidney Wang, Joyce Hsiao, and Yoav Gilad
 
 Code is released under the GPLv3 license.
 
