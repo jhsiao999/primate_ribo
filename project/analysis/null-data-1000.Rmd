@@ -1,12 +1,12 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "Create a null data set"
+    title: "Permutation-based significance testing"
     theme: default
 ---
 
 
-Create a null data set
+Permutation-based significance testing
 =========================================================
 
 ```{r run_author, results='asis', echo=FALSE}
@@ -59,75 +59,219 @@ require(Humanzee)
 Goal
 =====
 
-We will create a null data set out of the 3,188 genes used for the major
-statistical analyses. Then, we will perform pairwise interaction test
-to compare species differences between molecular phenotypes.
+Permutation-based significance testing for 
 
+1. The proportion of genes buffered at both Ribo and Protein levels among
+    the genes that are buffered at the Ribo level
+
+2. The proportion of genes buffered at both Ribo and Protein levels among
+    the genes that are buffered at the Protein level
+
+Note that here a gene is considered to be buffered at the Ribo level relative
+to the RNA level if there is a significance interaction of species and 
+technology (RNA-Ribo) and if the absolute value of species difference at
+the RNA level is greater than the absolute value of species difference at
+the Ribo level.
 
 
 Approach
 ===========
 
-Permuate gene labels for all three phenotypes.
+Perform the follow permutation 1,000 times:
 
-For gene g, randomly select RNA data from gene i and Ribo from gene j 
-and Protein data from gene k.
+For gene g, fix RNA data, select Ribo data from gene i, and 
+select protein data from gene j. All selection was done with random
+sampling with replacement.
+
+The source code for generating the permuted data sets and interaction results
+are recorded in *null-data-1000-midway.r*. We waited 8 hours approximately
+for 1000 permutations to complete for each interaction analysis.
 
 
 ```{r}
-# Load data
+# Load data to compute fold changes 
 load(file.path(rdadir, "eSetRRP.rda"))
 
+eSet.temp <- eSetRRP.log2[, eSetRRP.log2$species!="rhesus"]
 
-# Generate 1000 sets of permutation labels
-# for Ribo and protein data
-n_permute <- 10
-n_genes <- dim(exprs(eSetRRP.log2))[1]
-
-permute_labels <- lapply(1:n_permute, function(per_null){
-                          data.frame(label1 = sample(1:n_genes, replace = FALSE),
-                                     label2 = sample(1:n_genes, replace = FALSE) )
-                          })
-
-
-# RNA vs. Ribo
-eset_rna_ribo <- eSetRRP.RP.Q.log2[ ,eSetRRP.RP.Q.log2$seqData != "protein"
-                                      & eSetRRP.RP.Q.log2$species != "rhesus"]
-
-null_rna_ribo <- lapply(1:n_permute, function(each_null) {
-    emat1 <- exprs(eset_rna_ribo)[ , eset_rna_ribo$seqData == "rna"]
-    emat2 <- exprs(eset_rna_ribo)[permute_labels[[each_null]][,1], 
-                                  eset_rna_ribo$seqData == "ribo"]
-    emat_per_null <- cbind(emat1, emat2)
-    eset_rna_ribo_per_null <- ExpressionSet(assayData = as.matrix(emat_per_null),
-                           phenoData = phenoData(eset_rna_ribo),
-                           experimentData = experimentData(eset_rna_ribo))
-    featureData(eset_rna_ribo) = featureData(eset_rna_ribo)
-    return(interact2way(eset_rna_ribo) )
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
 })
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+
+# Load permutation labels
+load( file=file.path(rdadir, "permute_labels.rda") )
+
+# Compute direction indices for each permuted data set
+direction_list_permute <- 
+    lapply(1:length(permute_labels), 
+           function(per_permute) {
+                                   
+        rna_labels <- permute_labels[[per_permute]]$rna
+        ribo_labels <- permute_labels[[per_permute]]$ribo
+        pro_labels <- permute_labels[[per_permute]]$pro
+        
+        ii_rnaGTribo_per_permute <- abs(dmat_unnormed$rna)[rna_labels] > 
+                                        abs(dmat_unnormed$ribo)[ribo_labels]
+        ii_riboGTrna_per_permute <- abs(dmat_unnormed$ribo)[ribo_labels] > 
+                                        abs(dmat_unnormed$rna)[rna_labels]
+        
+        ii_rnaGTpro_per_permute <- abs(dmat_unnormed$rna)[rna_labels] > 
+                                       abs(dmat_unnormed$pro)[pro_labels]
+        ii_proGTrna_per_permute <- abs(dmat_unnormed$pro)[pro_labels] > 
+                                       abs(dmat_unnormed$rna)[rna_labels]
+        
+        list(ii_rnaGTribo_per_permute = ii_rnaGTribo_per_permute,
+             ii_riboGTrna_per_permute = ii_riboGTrna_per_permute,
+             ii_rnaGTpro_per_permute = ii_rnaGTpro_per_permute, 
+             ii_proGTrna_per_permute = ii_proGTrna_per_permute)
+   })
+
+
+# Load interaction model results on the permuted data sets
+load( file = file.path(rdadir, "res_null_ribo_rna.rda"))
+load( file = file.path(rdadir, "res_null_rna_pro.rda"))
+
+# Compute significance index
+sig_list_permute <- 
+    lapply(1:length(permute_labels), 
+           function(per_permute) {
+                                   
+        ii_sig_rnaribo_per_permute <-
+            res_null_ribo_rna[[per_permute]]$int.qval < .01
+        ii_sig_rnapro_per_permute <- 
+            res_null_rna_pro[[per_permute]]$int.qval < .01
+
+        list(ii_sig_rnaribo_per_permute = ii_sig_rnaribo_per_permute,
+             ii_sig_rnapro_per_permute = ii_sig_rnapro_per_permute)
+   })
+
+```
+
+
+## P-value distribution of a single permutation
+
+```{r}
+load(file = file.path(rdadir, "res_null_ribo_pro.rda") )
+
+par(mfrow = c(2,2))
+ribo_rna_permute_pval <- res_null_ribo_rna[[999]]$int.pval
+hist( ribo_rna_permute_pval, xlab = "p-value",
+      main = "P-value distribution of Ribo-RNA interaction test
+              based on a single permutated data set")
+
+rna_pro_permute_pval <- res_null_rna_pro[[999]]$int.pval
+hist( rna_pro_permute_pval, xlab = "p-value",
+      main = "P-value distribution of RNA-PRO interaction test
+              based on a single permutated data set")
+
+ribo_pro_permute_pval <- res_null_ribo_pro[[999]]$int.pval
+hist( ribo_pro_permute_pval, xlab = "p-value",
+      main = "P-value distribution of Ribo-PRO interaction test
+              based on a single permutated data set")
+```
 
 
 
+Permuted tables
+================
 
 
-  
-  
-  
+```{r}
+buffer_tables <- 
+    lapply(1:length(permute_labels), 
+        function(per_permute) {
+        
+      buffer_matrix_per_permute <- matrix(0, 2, 2)
+      direction_per_permute <- direction_list_permute[[per_permute]]
+      sig_per_permute <- sig_list_permute[[per_permute]]
+      
+      # Buffering at ribo and protein
+      buffer_matrix_per_permute[1,1] <- 
+          sum(direction_per_permute$ii_rnaGTpro_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute &
+              direction_per_permute$ii_rnaGTribo_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      
+      # Non-buffered at Ribo and buffered at Protein
+      buffer_matrix_per_permute[2,1] <- 
+          sum(direction_per_permute$ii_rnaGTpro_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute &
+              direction_per_permute$ii_riboGTrna_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      
+      
+      # Buffered at Ribo and non-buffered at Protein
+      buffer_matrix_per_permute[1,2] <- 
+          sum(direction_per_permute$ii_proGTrna_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute &
+              direction_per_permute$ii_rnaGTribo_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      
+      # Non-buffered at Ribo and non-buffered at Protein
+      buffer_matrix_per_permute[2,2] <- 
+          sum(direction_per_permute$ii_proGTrna_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute &
+              direction_per_permute$ii_riboGTrna_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      return(buffer_matrix_per_permute)
+    })
 
-head(exprs(eset_rna_ribo))
+hist( sapply(buffer_tables, 
+            function(single_table) single_table[1,1]),
+      main = "Permuted distribution of the number of genes that are 
+              buffered at Ribo and also at Protein",
+      xlab = "Number of genes")
 
-eset_rna_pro <-  eSetRRP.log2[ ,eSetRRP.log2$seqData != "ribo" &
-                                 eSetRRP.log2$species != "rhesus"]
+hist( sapply(buffer_tables, 
+            function(single_table) single_table[1,2]),
+      main = "Permuted distribution of the number of genes that are 
+              buffered at Ribo but not buffered at Protein",
+      xlab = "Number of genes")
 
-eset_ribo_pro <-  eSetRRP.log2[ ,eSetRRP.log2$seqData != "rna" &
-                                 eSetRRP.log2$species != "rhesus"]
+hist( sapply(buffer_tables, 
+            function(single_table) single_table[2,1]),
+      main = "Permuted distribution of the number of genes that are 
+              not buffered at Ribo but buffered at Protein",
+      xlab = "Number of genes")
+
+hist( sapply(buffer_tables, 
+            function(single_table) single_table[2,2]),
+      main = "Permuted distribution of the number of genes that 
+              are not buffered at Ribo and also not buffered at Protein",
+      xlab = "Number of genes")
+```
 
 
 
-res.riborna <- interact2way(eSet)
+## Compute observed frequencies of each categories
 
 
+```{r}
+load(file.path(rdadir,"TEnew.rda"))
 
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
 
 fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
   ii <- eSet.temp$species == c("human","chimp")[i]
@@ -152,432 +296,91 @@ xy.riborna <- data.frame( rna = dmat_unnormed$rna,
                           ribo = dmat_unnormed$ribo )
 xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
                           pro = dmat_unnormed$pro )
-```
 
-
-## RNA vs. Ribo divergence
-
-```{r}
-## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+# RNA-Ribo divergence
+# Genes with sig. human/chimp difference in divergence between RNA and Ribo
 ii_sig_rnaribo <- res.riborna$int.qval < .01
-
-## Genes with RNA > Ribo in effect sizes
+# Genes with RNA > Ribo in effect sizes
 ii_rnaGTribo <- abs(xy.riborna$rna) > abs(xy.riborna$ribo)
-
-## Genes with RNA < Ribo in effect sizes
+# Genes with RNA < Ribo in effect sizes
 ii_riboGTrna <- abs(xy.riborna$ribo) > abs(xy.riborna$rna)
-```
 
-
-## RNA vs. Protein divergence
-
-```{r}
-## Genes with sig. human/chimp difference in divergence between RNA and protein
+# RNA-protein divergence
+# Genes with sig. human/chimp difference in divergence between RNA and protein
 ii_sig_rnapro <- res.rnapro$int.qval < .01
-
-## Genes with RNA > Protein in effect sizes
+# Genes with RNA > Protein in effect sizes
 ii_rnaGTpro <- abs(xy.rnapro$rna) > abs(xy.rnapro$pro)
-
-## Genes with RNA < Protein in effect sizes
+# Genes with RNA < Protein in effect sizes
 ii_proGTrna <- abs(xy.rnapro$pro) > abs(xy.rnapro$rna)
-```
 
 
-
-
-Buffering at Ribo and Protein
-==============================
-
-
-## Interaction approach
-
-```{r}
+# Observed table
 buffering_matrix_interact <- 
-    matrix(0, 4, 4,
-     dimnames = list(rnaribo = c("Ribo buffered & RNA-Ribo interaction", 
-                                 "Ribo non-buffered & RNA-Ribo interaction",
-                                 "RNA-Ribo no interaction",
-                                 "Column sum"),
-                   rnapro = c("Protein buffered & RNA-Protein interaction",
-                              "Protein non-buffered & RNA-protein interaction",
-                              "RNA-Protein no interaction",
-                              "Row sum") ) )
+    matrix(0, 2, 2,
+     dimnames = list(rnaribo = c("Ribo buffered", "Ribo non-buffered"),
+                   rnapro = c("Protein buffered", "Protein non-buffered") ) )
 
-## Among the genes buffered at translation,
-## count the number of genes buffered at protein,
-## non-buffered at protein, no interaction between RNA and protein,
-## and the total number
 buffering_matrix_interact[1,1] <- 
     sum( (ii_rnaGTpro & ii_sig_rnapro)[ii_rnaGTribo & ii_sig_rnaribo])
 buffering_matrix_interact[1,2] <- 
     sum( (ii_proGTrna & ii_sig_rnapro)[ii_rnaGTribo & ii_sig_rnaribo])
-buffering_matrix_interact[1,3] <- 
-    sum( (!ii_sig_rnapro)[ii_rnaGTribo & ii_sig_rnaribo] )
-buffering_matrix_interact[1,4] <- 
-    sum(ii_rnaGTribo & ii_sig_rnaribo)
-
-
-## Among the genes non-buffered at translation,
-## count the number of genes buffered at protein,
-## non-buffered at protein, no interaction between RNA and protein,
-## and the total number
 buffering_matrix_interact[2,1] <- 
     sum( (ii_rnaGTpro & ii_sig_rnapro)[ii_riboGTrna & ii_sig_rnaribo])
 buffering_matrix_interact[2,2] <- 
     sum( (ii_proGTrna & ii_sig_rnapro)[ii_riboGTrna & ii_sig_rnaribo])
-buffering_matrix_interact[2,3] <- 
-  sum( (!ii_sig_rnapro)[ii_riboGTrna & ii_sig_rnaribo] )
-buffering_matrix_interact[2,4] <- 
-  sum(ii_riboGTrna & ii_sig_rnaribo)
-
-
-## Of all genes with sig. difference in translation efficiency,
-## count the number of genes buffered at protein,
-## non-buffered at protein, and no interaction between RNA and protein
-buffering_matrix_interact[4,1] <- 
-    sum( (ii_rnaGTpro & ii_sig_rnapro)[ 
-        (ii_rnaGTribo | ii_riboGTrna) & ii_sig_rnaribo] )
-buffering_matrix_interact[4,2] <- 
-    sum( (ii_proGTrna & ii_sig_rnapro)[ 
-        (ii_rnaGTribo | ii_riboGTrna) & ii_sig_rnaribo ] )
-buffering_matrix_interact[4,3] <- 
-  sum((!ii_sig_rnapro)[ ii_sig_rnaribo] )
-
-## No. of genes with sig. translation efficiency
-buffering_matrix_interact[4,4] <- sum(ii_sig_rnaribo)
-
-kable(buffering_matrix_interact)
-```
-
-
-### Sig. testing
-
-Of the genes with sig. translation efficiency difference between species and
-also sig. RNA-protein interaction, we consider the set of genes
-that were buffered at the Ribo level and test the null hypothesis
-that among these genes are as likely to be buffered at the protein
-level as to be non-buffered (null proportion = .5)
-
-```{r}
-
-prop.test(buffering_matrix_interact[1,1],
-          buffering_matrix_interact[1,1] + buffering_matrix_interact[1,2],
-          p = .5)
-
-
-binom.test(buffering_matrix_interact[1,1],
-          buffering_matrix_interact[1,1] + buffering_matrix_interact[1,2],
-          p = .5)
 
 ```
 
 
-### Plots
+Permuted p-values
+=================
 
-For genes buffered at the Ribo level compared to the RNA level, 
-plot out per gene effect sizes of RNA and protein for genes
-that are buffered at protein, non-buffered at protein and that
-do not have significant interaction between RNA and protein.
-
+Proportion of genes buffered at both Ribo and Protein level among genes
+that are buffered in Protein
 
 ```{r}
-## Plot out effect sizes calculated from
-## un-normalized data
-plot_matrix <- cbind(xy.rnapro$rna, xy.rnapro$pro)
-
-## Make a panel for 4 plots
-par( mfrow = c(2,2), mar = c(4, 4, 3, 1), oma = c(1, 2, 1, 1),
-     cex.main = 1.2, cex.axis = 1)
-title_list <- list("RNA-Protein buffered",
-                   "RNA-Protein non-buffered",
-                   "RNA-Protein no interaction")
-index_list <- 
-  list( ii_buff_pro_buff = 
-        (ii_rnaGTpro & ii_sig_rnapro) & (ii_rnaGTribo & ii_sig_rnaribo),
-        ii_buff_pro_nobuff =
-        (ii_proGTrna & ii_sig_rnapro) & (ii_rnaGTribo & ii_sig_rnaribo),
-        ii_buff_no_interact = (!ii_sig_rnapro) & ii_rnaGTribo & ii_sig_rnaribo )
-col_list <- crayon[c("Orange Red", "Pine Green", "Violet Blue")]
-for (i in 1:length(index_list)) {
-    plot(plot_matrix, col = "gray60", cex = .8, ann = FALSE, axes = FALSE)
-    points(plot_matrix[ which( index_list[[i]] ), ], 
-           col = col_list[[i]], pch = 16, cex = .7)
-    abline(0, 1, v = 0, h = 0, col = crayon["Black"], lwd = .8)
-    axis(1); axis(2)
-    title(main = title_list[[i]],
-          xlab = "log2(Human/Chimp) RPKM of RNA levels",
-          ylab = "log2(Human/Chimp) of Protein levels")
-}
-title(main = "RNA-Ribo buffered", outer = TRUE)
-```
-
-
-
-
-For genes that are not buffered at the Ribo level compared to the RNA level, 
-plot out per gene effect sizes of RNA and protein for genes
-that are buffered at protein, non-buffered at protein and that
-do not have significant interaction between RNA and protein.
-
-
-```{r}
-## Plot out effect sizes calculated from
-## un-normalized data
-plot_matrix <- cbind(xy.rnapro$rna, xy.rnapro$pro)
-
-## Make a panel for 4 plots
-par( mfrow = c(2,2), mar = c(4, 4, 3, 1), oma = c(1, 2, 1, 1),
-     cex.main = 1.2, cex.axis = 1)
-title_list <- list("RNA-Protein buffered",
-                   "RNA-Protein non-buffered",
-                   "RNA-Protein no interaction")
-index_list <- 
-  list( ii_nobuff_pro_buff = 
-      (ii_rnaGTpro & ii_sig_rnapro) & (ii_riboGTrna & ii_sig_rnaribo),
-      ii_nobuff_pro_nobuff =
-      (ii_proGTrna & ii_sig_rnapro) & (ii_riboGTrna & ii_sig_rnaribo),
-      ii_nobuff_no_interact = (!ii_sig_rnapro) & ii_riboGTrna & ii_sig_rnaribo )
-col_list <- crayon[c("Orange Red", "Pine Green", "Violet Blue")]
-for (i in 1:length(index_list)) {
-    plot(plot_matrix, col = "gray60", cex = .8, ann = FALSE, axes = FALSE)
-    points(plot_matrix[ which( index_list[[i]] ), ], 
-           col = col_list[[i]], pch = 16, cex = .7)
-    abline(0, 1, v = 0, h = 0, col = crayon["Black"], lwd = .8)
-    axis(1); axis(2)
-    title(main = title_list[[i]],
-          xlab = "log2(Human/Chimp) RPKM of RNA levels",
-          ylab = "log2(Human/Chimp) of Protein levels")
-}
-title(main = "RNA-Ribo non-buffered", outer = TRUE)
-```
-
-
-We look further into the genes that were buffered at the Ribo level
-and had no significant inter-species difference between RNA and Protein.
-
-**Question**: We see in the scatter plot, some genes have a much larger
-effect size at the RNA level compared to the protein level. Yet,
-these genes did not show significant difference between inter-species
-differences at the RNA level and and the protein level.
-    
-**A possible explanation**: Maybe these genes have a larger variance at the 
-RNA level compared to the protein level. Because statistial significance is 
-a function of effect size and variance, perhaps the size of the variances
-of these genes canceled out the large effect size of these genes.
-
-
-```{r}
-## Compute per gene variance estimate for RNA data and for protein data
-## We first compute variances among species and then take the average of 
-## the two to be the per gene variance estimates
-
-load( file.path(rdadir,"eSetRRP.rda") )
-eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
 require(matrixStats)
-varmat <- lapply( seq_along( c("human","chimp") ), function(i) {
-  ii <- eSet.temp$species == c("human","chimp")[i]
-  eSet.tt <- eSet.temp[, ii]
-  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
-    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
-    rowVars( exprs(eSet.tt[, jj] ), na.rm=TRUE )
-  })
-  emat <- do.call(cbind, emat)
-  colnames(emat) <- c("ribo","rna","protein")
-  return( data.frame(emat) )
-})
-names(varmat) <- c("human","chimp")
 
-varmat <- data.frame(
-    rna = (varmat$human$rna + varmat$chimp$rna)/2,
-    pro = (varmat$human$pro + varmat$chimp$pro)/2)
+observed_pro <- buffering_matrix_interact[1,1]/colSums(buffering_matrix_interact)[1]
+null_pro <- sapply(buffer_tables, 
+                    function(per_table) {
+                    per_table[1,1]/colSums(per_table)[1]
+                    })
+hist(null_pro, 
+     main = paste("Permuted distribution
+             observed", round(observed_pro,2)*100, "percent"), xlab = "Proportion")
+abline( v = observed_pro, col = "red")
+
+ntests <- pmin(sum(!is.na(null_pro)), length(null_pro))
+permute_pval <- pmax(sum(null_pro > observed_pro, na.rm = TRUE)/ntests,
+                     1/ntests)
+permute_pval
 ```
 
-    
 
+
+
+Proportion of genes buffered at both Ribo and Protein level among genes
+that are buffered in Ribo
 
 ```{r}
-par( mfrow = c(2,2), mar = c(4, 4, 4, 1), oma = c(1, 2, 2, 1),
-     cex.main = 1.2, cex.axis = 1)
-ii_buff_no_interact <- (!ii_sig_rnapro) & ii_rnaGTribo & ii_sig_rnaribo 
-plot(plot_matrix, col = "gray60", cex = .8, ann = FALSE, axes = FALSE)
-points(plot_matrix[ which( ii_buff_no_interact ), ], 
-       col = crayon["Violet Blue"], pch = 16, cex = .7)
-abline(0, 1, v = 0, h = 0, col = crayon["Black"], lwd = .8)
-axis(1); axis(2)
-title(main = "Per gene fold changes",
-      xlab = "log2(Human/Chimp) RPKM of RNA levels",
-      ylab = "log2(Human/Chimp) of Protein levels")
+require(matrixStats)
 
-plot(log2(varmat), col = "gray60", cex = .8, ann = FALSE, axes = FALSE)
-points(log2(varmat[ which( ii_buff_no_interact ), ]), 
-       col = crayon["Violet Blue"], pch = 16, cex = .7)
-abline(0, 1, v = 0, h = 0, col = crayon["Black"], lwd = .8)
-axis(1); axis(2)
-title(main = "Per gene variance estimates",
-      xlab = "log2(Human/Chimp) RPKM of RNA levels",
-      ylab = "log2(Human/Chimp) of Protein levels")
+observed_ribo <- buffering_matrix_interact[1,1]/rowSums(buffering_matrix_interact)[1]
+null_ribo <- sapply(buffer_tables, 
+                    function(per_table) {
+                    per_table[1,1]/rowSums(per_table)[1]
+                    })
+hist(null_ribo, 
+     main = paste("Permuted distribution
+             observed", round(observed_ribo,2)*100, "percent"), xlab = "Proportion")
+abline( v = observed_ribo, col = "red")
 
-title(main = "RNA-Ribo buffered genes that \n 
-              has no sig. diff. between RNA and protein", outer = TRUE)
-
-
+ntests <- pmin(sum(!is.na(null_ribo)), length(null_ribo))
+permute_pval <- pmax(sum(null_ribo > observed_ribo, na.rm = TRUE)/ntests,
+                     1/ntests)
+permute_pval
 ```
-
-
-
-
-
-
-
-## Size approach
-
-```{r}
-buffering_matrix_size <- 
-    matrix(0, 3, 3,
-     dimnames = list(rnaribo = c("Ribo buffered", 
-                                 "Ribo non-buffered",
-                                 "Column sum"),
-                   rnapro = c("Protein buffered",
-                              "Protein non-buffered",
-                              "Row sum") ) )
-
-## Among the genes buffered at translation,
-## count the number of genes buffered at protein,
-## non-buffered at protein and the total number
-buffering_matrix_size[1,1] <- 
-    sum( (ii_rnaGTpro)[ii_rnaGTribo & ii_sig_rnaribo])
-buffering_matrix_size[1,2] <- 
-    sum( (ii_proGTrna)[ii_rnaGTribo & ii_sig_rnaribo])
-buffering_matrix_size[1,3] <- 
-    sum(ii_rnaGTribo & ii_sig_rnaribo)
-
-
-## Among the genes non-buffered at translation,
-## count the number of genes buffered at protein,
-## non-buffered at protein and the total number
-buffering_matrix_size[2,1] <- 
-    sum( (ii_rnaGTpro )[ii_riboGTrna & ii_sig_rnaribo])
-buffering_matrix_size[2,2] <- 
-    sum( (ii_proGTrna )[ii_riboGTrna & ii_sig_rnaribo])
-buffering_matrix_size[2,3] <- 
-  sum(ii_riboGTrna & ii_sig_rnaribo)
-
-
-## Of all genes with sig. difference in translation efficiency,
-## count the number of genes buffered at protein,
-## non-buffered at protein, and no interaction between RNA and protein
-buffering_matrix_size[3,1] <- 
-    sum( (ii_rnaGTpro)[ 
-        (ii_rnaGTribo | ii_riboGTrna) & ii_sig_rnaribo] )
-buffering_matrix_size[3,2] <- 
-    sum( (ii_proGTrna)[ 
-        (ii_rnaGTribo | ii_riboGTrna) & ii_sig_rnaribo ] )
-
-## No. of genes with sig. translation efficiency
-buffering_matrix_size[3,3] <- sum(ii_sig_rnaribo)
-
-kable(buffering_matrix_size)
-```
-
-
-
-### Sig. testing
-
-Of the genes with sig. translation efficiency difference between species, 
-we consider the set of genes
-that were buffered at the Ribo level and test the null hypothesis
-that among these genes are as likely to be buffered at the protein
-level as to be non-buffered (null proportion = .5)
-
-```{r}
-
-prop.test(buffering_matrix_size[1,1],
-          buffering_matrix_size[1,1] + buffering_matrix_size[1,2],
-          p = .5)
-
-
-binom.test(buffering_matrix_size[1,1],
-          buffering_matrix_size[1,1] + buffering_matrix_size[1,2],
-          p = .5)
-
-```
-
-
-### Plots
-For genes buffered at the Ribo level compared to the RNA level, 
-plot out per gene effect sizes of RNA and protein for genes
-that are buffered at protein and  non-buffered at protein.
-
-
-```{r}
-## Plot out effect sizes calculated from
-## un-normalized data
-plot_matrix <- cbind(xy.rnapro$rna, xy.rnapro$pro)
-
-## Make a panel for 4 plots
-par( mfrow = c(2,2), mar = c(4, 4, 3, 1), oma = c(1, 2, 1, 1),
-     cex.main = 1.2, cex.axis = 1)
-title_list <- list("RNA-Protein buffered",
-                   "RNA-Protein non-buffered",
-                   "RNA-Protein no interaction")
-index_list <- 
-  list( ii_buff_pro_buff = 
-        (ii_rnaGTpro) & (ii_rnaGTribo & ii_sig_rnaribo),
-        ii_buff_pro_nobuff =
-        (ii_proGTrna) & (ii_rnaGTribo & ii_sig_rnaribo) )
-col_list <- crayon[c("Orange Red", "Pine Green")]
-for (i in 1:length(index_list)) {
-    plot(plot_matrix, col = "gray60", cex = .8, ann = FALSE, axes = FALSE)
-    points(plot_matrix[ which( index_list[[i]] ), ], 
-           col = col_list[[i]], pch = 16, cex = .7)
-    abline(0, 1, v = 0, h = 0, col = crayon["Black"], lwd = .8)
-    axis(1); axis(2)
-    title(main = title_list[[i]],
-          xlab = "log2(Human/Chimp) RPKM of RNA levels",
-          ylab = "log2(Human/Chimp) of Protein levels")
-}
-title(main = "RNA-Ribo buffered", outer = TRUE)
-```
-
-
-
-
-For genes that are not buffered at the Ribo level compared to the RNA level, 
-plot out per gene effect sizes of RNA and protein for genes
-that are buffered at protein, non-buffered at protein.
-
-
-```{r}
-## Plot out effect sizes calculated from
-## un-normalized data
-plot_matrix <- cbind(xy.rnapro$rna, xy.rnapro$pro)
-
-## Make a panel for 4 plots
-par( mfrow = c(2,2), mar = c(4, 4, 3, 1), oma = c(1, 2, 1, 1),
-     cex.main = 1.2, cex.axis = 1)
-title_list <- list("RNA-Protein buffered",
-                   "RNA-Protein non-buffered",
-                   "RNA-Protein no interaction")
-index_list <- 
-  list( ii_nobuff_pro_buff = 
-      (ii_rnaGTpro) & (ii_riboGTrna & ii_sig_rnaribo),
-      ii_nobuff_pro_nobuff =
-      (ii_proGTrna) & (ii_riboGTrna & ii_sig_rnaribo) )
-col_list <- crayon[c("Orange Red", "Pine Green")]
-for (i in 1:length(index_list)) {
-    plot(plot_matrix, col = "gray60", cex = .8, ann = FALSE, axes = FALSE)
-    points(plot_matrix[ which( index_list[[i]] ), ], 
-           col = col_list[[i]], pch = 16, cex = .7)
-    abline(0, 1, v = 0, h = 0, col = crayon["Black"], lwd = .8)
-    axis(1); axis(2)
-    title(main = title_list[[i]],
-          xlab = "log2(Human/Chimp) RPKM of RNA levels",
-          ylab = "log2(Human/Chimp) of Protein levels")
-}
-title(main = "RNA-Ribo non-buffered", outer = TRUE)
-```
-
-
 
 Session information
 ===================
