@@ -1,7 +1,7 @@
 ---
 layout: page
-title: "primate_ribo"
-tagline: A comparative study of translation divergence
+title: "A comparative study of primate translation divergence"
+tagline: 
 ---
 
 
