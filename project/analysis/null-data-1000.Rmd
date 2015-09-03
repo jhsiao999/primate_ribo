@@ -257,8 +257,14 @@ hist( sapply(buffer_tables,
 
 
 
-## Compute observed frequencies of each categories
 
+
+
+Permuted p-values
+=================
+
+
+## Buffering considering interaction effect
 
 ```{r}
 load(file.path(rdadir,"TEnew.rda"))
@@ -332,9 +338,6 @@ buffering_matrix_interact[2,2] <-
 ```
 
 
-Permuted p-values
-=================
-
 Proportion of genes buffered at both Ribo and Protein level among genes
 that are buffered in Protein
 
@@ -381,6 +384,238 @@ permute_pval <- pmax(sum(null_ribo > observed_ribo, na.rm = TRUE)/ntests,
                      1/ntests)
 permute_pval
 ```
+
+
+
+
+## Buffering NOT considering interaction effect
+
+
+```{r}
+load(file.path(rdadir,"TEnew.rda"))
+
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
+
+# RNA-Ribo divergence
+# Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
+# Genes with RNA > Ribo in effect sizes
+ii_rnaGTribo <- abs(xy.riborna$rna) > abs(xy.riborna$ribo)
+# Genes with RNA < Ribo in effect sizes
+ii_riboGTrna <- abs(xy.riborna$ribo) > abs(xy.riborna$rna)
+
+# RNA-protein divergence
+# Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+# Genes with RNA > Protein in effect sizes
+ii_rnaGTpro <- abs(xy.rnapro$rna) > abs(xy.rnapro$pro)
+# Genes with RNA < Protein in effect sizes
+ii_proGTrna <- abs(xy.rnapro$pro) > abs(xy.rnapro$rna)
+```
+
+
+
+### Of genes with sig. translation efficiency
+
+Proportion of genes buffered at both Ribo and Protein level among genes
+that are buffered in Ribo
+
+```{r}
+# Observed table
+buffering_matrix <- 
+    matrix(0, 2, 2,
+     dimnames = list(rnaribo = c("Ribo buffered", "Ribo non-buffered"),
+                   rnapro = c("Protein buffered", "Protein non-buffered") ) )
+
+buffering_matrix[1,1] <- 
+    sum( (ii_rnaGTpro & ii_rnaGTribo) & ii_sig_rnaribo)
+buffering_matrix[1,2] <- 
+    sum( (ii_proGTrna & ii_rnaGTribo) & ii_sig_rnaribo)
+buffering_matrix[2,1] <- 
+    sum( (ii_rnaGTpro & ii_riboGTrna) & ii_sig_rnaribo)
+buffering_matrix[2,2] <- 
+    sum( (ii_proGTrna & ii_riboGTrna) & ii_sig_rnaribo)
+
+
+# Permutation-based table
+buffer_tables_riborna <- 
+    lapply(1:length(permute_labels), 
+        function(per_permute) {
+        
+      buffering_matrix_riborna <- matrix(0, 2, 2)
+      direction_per_permute <- direction_list_permute[[per_permute]]
+      sig_per_permute <- sig_list_permute[[per_permute]]
+      
+      # Buffering at ribo and protein
+      buffering_matrix_riborna[1,1] <- 
+          sum(direction_per_permute$ii_rnaGTpro_per_permute &
+              direction_per_permute$ii_rnaGTribo_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      
+      # Non-buffered at Ribo and buffered at Protein
+      buffering_matrix_riborna[2,1] <- 
+          sum(direction_per_permute$ii_rnaGTpro_per_permute &
+              direction_per_permute$ii_riboGTrna_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      
+      
+      # Buffered at Ribo and non-buffered at Protein
+      buffering_matrix_riborna[1,2] <- 
+          sum(direction_per_permute$ii_proGTrna_per_permute &
+              direction_per_permute$ii_rnaGTribo_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      
+      # Non-buffered at Ribo and non-buffered at Protein
+      buffering_matrix_riborna[2,2] <- 
+          sum(direction_per_permute$ii_proGTrna_per_permute &
+              direction_per_permute$ii_riboGTrna_per_permute &
+              sig_per_permute$ii_sig_rnaribo_per_permute)
+      return(buffering_matrix_riborna)
+    })
+```
+
+
+```{r}
+require(matrixStats)
+
+observed_riborna <- buffering_matrix[1,1]/rowSums(buffering_matrix)[1]
+null_riborna <- sapply(buffer_tables_riborna, 
+                        function(per_table) {
+                        per_table[1,1]/rowSums(per_table)[1]
+                        })
+hist(null_riborna, 
+     main = paste("Permuted distribution
+             observed", round(observed_riborna,2)*100, "percent"), 
+     xlab = "Proportion")
+abline( v = observed_riborna, col = "red")
+
+ntests <- pmin(sum(!is.na(null_riborna)), length(null_riborna))
+permute_pval <- pmax(sum(null_riborna > observed_riborna, na.rm = TRUE)/ntests,
+                     1/ntests)
+permute_pval
+```
+
+
+
+
+### Of genes with sig. RNA-protein interaction
+
+Proportion of genes buffered at both Ribo and Protein level among genes
+that are buffered in Protein
+
+```{r}
+# Observed table
+buffering_matrix_rnapro <- 
+    matrix(0, 2, 2,
+     dimnames = list(rnaribo = c("Ribo buffered", "Ribo non-buffered"),
+                   rnapro = c("Protein buffered", "Protein non-buffered") ) )
+
+buffering_matrix_rnapro[1,1] <- 
+    sum( (ii_rnaGTpro & ii_rnaGTribo) & ii_sig_rnapro)
+buffering_matrix_rnapro[1,2] <- 
+    sum( (ii_proGTrna & ii_rnaGTribo) & ii_sig_rnapro)
+buffering_matrix_rnapro[2,1] <- 
+    sum( (ii_rnaGTpro & ii_riboGTrna) & ii_sig_rnapro)
+buffering_matrix_rnapro[2,2] <- 
+    sum( (ii_proGTrna & ii_riboGTrna) & ii_sig_rnapro)
+
+
+# Permutation-based table
+buffer_tables_rnapro_permute <- 
+    lapply(1:length(permute_labels), 
+        function(per_permute) {
+        
+      buffering_matrix_rnapro <- matrix(0, 2, 2)
+      direction_per_permute <- direction_list_permute[[per_permute]]
+      sig_per_permute <- sig_list_permute[[per_permute]]
+      
+      # Buffering at ribo and protein
+      buffering_matrix_rnapro[1,1] <- 
+          sum(direction_per_permute$ii_rnaGTpro_per_permute &
+              direction_per_permute$ii_rnaGTribo_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute)
+      
+      # Non-buffered at Ribo and buffered at Protein
+      buffering_matrix_rnapro[2,1] <- 
+          sum(direction_per_permute$ii_rnaGTpro_per_permute &
+              direction_per_permute$ii_riboGTrna_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute)
+      
+      
+      # Buffered at Ribo and non-buffered at Protein
+      buffering_matrix_rnapro[1,2] <- 
+          sum(direction_per_permute$ii_proGTrna_per_permute &
+              direction_per_permute$ii_rnaGTribo_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute)
+      
+      # Non-buffered at Ribo and non-buffered at Protein
+      buffering_matrix_rnapro[2,2] <- 
+          sum(direction_per_permute$ii_proGTrna_per_permute &
+              direction_per_permute$ii_riboGTrna_per_permute &
+              sig_per_permute$ii_sig_rnapro_per_permute)
+      return(buffering_matrix_rnapro)
+    })
+```
+
+
+```{r}
+require(matrixStats)
+
+observed_rnapro <- buffering_matrix_rnapro[1,1]/colSums(buffering_matrix_rnapro)[1]
+null_rnapro <- sapply(buffer_tables_rnapro_permute, 
+                        function(per_table) {
+                        per_table[1,1]/colSums(per_table)[1]
+                        })
+hist(null_rnapro, 
+     main = paste("Permuted distribution
+             observed", round(observed_rnapro,2)*100, "percent"), 
+     xlab = "Proportion")
+abline( v = observed_rnapro, col = "red")
+
+ntests <- pmin(sum(!is.na(null_rnapro)), length(null_rnapro))
+permute_pval <- pmax(sum(null_rnapro > observed_rnapro, na.rm = TRUE)/ntests,
+                     1/ntests)
+permute_pval
+```
+
+
+
+
+
+
+
 
 Session information
 ===================
