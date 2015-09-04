@@ -37,8 +37,7 @@ tagline:
         * [RNA-protein divergencec conditioned on RNA-Ribo divergence](project/analysis/TE-genes-ribo-pro-buffering.html)
         * [RNA-Ribo divergence conditioned on RNA-protein divergencee](project/analysis/buffering-rna-pro-v2.html)
 	* [Permutation-based significance testing](project/analysis/null-data-1000.html)
-	* [Simulation experiments](project/analysis/divergence-table-simulate.html)
-
+	* [Simulation experiments - expected divergence ratio](project/analysis/)
 ### Attenuation or enhancement of divergence
 
 * Version-20150812
