@@ -89,7 +89,7 @@ pro &lt;- c(sample(1:10, size = 100, replace = TRUE),
          -1*sample(1:10, size = 100, replace = TRUE) )
 data &lt;- cbind(rna, ribo, pro)
 str(data)</code></pre>
-<pre><code>##  num [1:200, 1:3] 4 7 5 9 9 5 2 4 7 8 ...
+<pre><code>##  num [1:200, 1:3] 6 3 6 6 9 1 3 1 10 6 ...
 ##  - attr(*, &quot;dimnames&quot;)=List of 2
 ##   ..$ : NULL
 ##   ..$ : chr [1:3] &quot;rna&quot; &quot;ribo&quot; &quot;pro&quot;</code></pre>
@@ -99,12 +99,12 @@ ii_rnapro &lt;- rna != pro
 data_sub &lt;- as.data.frame(data[ii_rnaribo &amp; ii_rnapro, ])
 head(data_sub)</code></pre>
 <pre><code>##   rna ribo pro
-## 1   7    6   6
-## 2   9    5   2
-## 3   5    7   8
-## 4   2    8  10
-## 5   4    6   2
-## 6   7    5   8</code></pre>
+## 1   3    7   5
+## 2   6    3   2
+## 3   6    1   5
+## 4   9    3   8
+## 5   1    2   3
+## 6   1    4   4</code></pre>
 <p>Construct a buffering type table based on our simulated data.</p>
 <pre class="r"><code>buff_table &lt;- 
     matrix(0, 2, 2,
@@ -123,8 +123,8 @@ buff_table[2,2] &lt;- sum(abs(data_sub$ribo) &gt; abs(data_sub$rna) &amp;
 buff_table</code></pre>
 <pre><code>##               RNA_Protein
 ## RNA_Ribo       buffered non-buffered
-##   buffered           50           24
-##   non-buffered       26           53</code></pre>
+##   buffered           56           15
+##   non-buffered       24           59</code></pre>
 <p>We observe that 39 out of 54 genes are buffered at the Ribo level given that they are buffered at both Ribo and Protein level.</p>
 </div>
 <div id="heres-why" class="section level1">
@@ -133,10 +133,10 @@ buff_table</code></pre>
 <p><em>Question: Why is that table[1,1] and table[2,2] entries are always greater than table[1,2] and table[2,1] entries, even after our permutation of gene labels??</em></p>
 <p>We can ask this question this way: Given three objects A, B, and C, let’s count the number of possible combinations of these three objects under the following scenarios:</p>
 <ul>
-<li>Scenario 1: A &gt; B, A &gt; C –&gt; 2 combinations</li>
+<li>Scenario 1: A &gt; B, A &gt; C –&gt; Makes 2 combinations</li>
 <li>Scenario 2: A &gt; B, A &lt; C –&gt; equivalent to C &gt; A &gt; B –&gt; 1 combination</li>
 <li>Scenario 3: A &lt; B, A &gt; C –&gt; equivalent to C &lt; A &lt; B –&gt; 1 combination</li>
-<li>Scenario 4: A &lt; B, A &lt; B –&gt; 2 combinations</li>
+<li>Scenario 4: A &lt; B, A &lt; C –&gt; Makes 2 combinations</li>
 </ul>
 <p>In our table, [1,1] corresponds to Scenario 1 above and [1,2] corresponds to Scenario 2 above. The expectation of cell frequencies of the table is thus:</p>
 <pre class="r"><code>exp_table &lt;- matrix(c(2,1,1,2), 2, 2, byrow = TRUE,
