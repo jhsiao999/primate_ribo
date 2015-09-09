@@ -26,6 +26,9 @@ tagline:
     * [Of 3,188 genes quantified in all three phenotypes](project/analysis/compare-ribo-rna-divergence.html)
     * [Of 8,572 genes quantified in RNA and Ribo](project/analysis/compare-ribo-rna-quantified-in-sequencing.html)
 
+* p-value distribution of the LR statistics
+    * [Permtuation-based test](project/analysis/permutation-interaction-test.html)
+    * [Ash]
 
 
 ### Buffering

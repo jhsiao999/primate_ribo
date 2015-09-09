@@ -1,0 +1,324 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Permutation-based significance testing for the interaction models"
+    theme: default
+---
+
+
+Permutation-based significance testing
+========================================
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+[view source](permutation-interaction-test.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, 
+               bootstrap.show.code = TRUE)
+```
+
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+
+
+Goal
+=====
+
+Permutation-based significance testing for the interaction models. We observed
+in our differential divergence analysis comparing species difference between
+phenotypes (RNA vs. Ribo, RNA vs. Protein, and Ribo vs. Protein) an odd
+p-value distribution (http://jhsiao999.github.io/primate_ribo/project/analysis/compare-ribo-rna-quantified-in-sequencing.html). Therefore, we decided to compute 
+permutation-based p-values for all the interaction tests. The goal of the 
+permutation is to construct an empirical null distribution for the interaction
+effect. Three permutation schemes are proposed as follows:
+
+1. *Shuffle across species and technology*: For each gene and each inter-species comparison
+of RNA, Ribo or protein levels, we shuffle the sample labels across species
+and also technology type for 1000 times. The empirical p-value is computed
+as the proportion of permutation-based test statistic that is greater than
+the observed test statistic. Likelihood ratio test statistic (chi-squared)
+is used to test the interaction effect.
+
+2. *Shuffle within speciees across technology*: For each gene and each 
+inter-species comparison of RNA, Ribo or protein levels, we shuffle the sample 
+labels with each species and across techology for 1000 times. 
+The empirical p-value is computed
+as the proportion of permutation-based test statistic that is greater than
+the observed test statistic. Likelihood ratio test statistic (chi-squared)
+is used to test the interaction effect.
+
+3. *Shuffle within technology across species*: For each gene and each 
+inter-species comparison of RNA, Ribo or protein levels, we shuffle the sample 
+labels with each technology type and across species for 1000 times. 
+The empirical p-value is computed as the proportion of permutation-based 
+test statistic that is greater than
+the observed test statistic. Likelihood ratio test statistic (chi-squared)
+is used to test the interaction effect.
+
+
+We used the *permute-interact-per-gene* function in the Humanzee package for generating the permuted data sets and interaction results are recorded in *permute-interact-per-gene.r*. Each permutation set of results of 3,188 genes
+was produced on *midway* using 1 clustering and 10 nodes, taking 3 and a half hours to completion. 
+
+
+Interaction analysis
+====================
+
+Run interaction anlaysis to include the value of likelihood ratio statistic of the 
+interaction analysis of each gene. Note that the results here are exactly the same
+as those saved in *TEnew.rda*, *ribopro.rda*, and *rnapro.rda*, with the addition
+of Likelihood ratio statistics.
+
+
+```{r, eval = FALSE}
+# RNA vs. Ribo
+load(file.path(rdadir, "eSetRRP.rda"))
+eset <- eSetRRP.RP.Q.log2[ ,eSetRRP.RP.Q.log2$seqData!="protein" & 
+                            eSetRRP.RP.Q.log2$species!="rhesus"]
+res.riborna_LR <- interact2way(eset)
+
+# Ribo vs. Protein
+load(file.path(rdadir, "ribopro.rda"))
+eset <- eSetRRP.log2.Qmed[ ,eSetRRP.log2.Qmed$seqData!="rna" & 
+                            eSetRRP.log2.Qmed$species!="rhesus"]
+res.ribopro_LR <- interact2way(eset)
+
+# RNA vs. Protein
+load(file.path(rdadir, "rnapro.rda"))
+eset <- eSetRRP.log2.Qmed[ ,eSetRRP.log2.Qmed$seqData!="ribo" & 
+                            eSetRRP.log2.Qmed$species!="rhesus"]
+res.rnapro_LR <- interact2way(eset)
+
+save(res.riborna_LR, res.ribopro_LR, res.rnapro_LR,
+     file = file.path(rdadir, "diff_diver_LR.rda"))
+```
+
+
+Helper function for computing empirical p-value
+
+```{r}
+get_perm_pvals <- function(perm_data, obs_data) {
+    n_simu <- length(perm_data)
+    n_genes <- dim(obs_data)[1]
+    perm_pvalues <- sapply(1: n_genes, function(per_gene) {
+                            n_larger <- sapply(perm_data, function(per_permute) {
+                                            per_permute[per_gene, "LRatio"] > obs_data[per_gene, "LRatio"]
+                                        })
+                            n_larger <- sum(n_larger, na.rm = TRUE)
+                            if (n_larger > 0) {
+                                pval <- n_larger/n_simu
+                            } 
+                            if (n_larger ==0) {
+                                pval <- 1/n_simu
+                            }
+                            return(pval)
+                          })
+  return(perm_pvalues)
+}
+```
+
+
+Within technology
+==================
+
+```{r}
+# Permuted results are saved locally on Joyce Hsiao's computer
+# Not enough storage space on GitHub
+
+permute_dir <- "~/Dropbox/Github/primate_ribo_rdas_permute/"
+
+# Interaction test results
+# Sample lables shuffled within technologies
+load(file.path(permute_dir, "permute-per-gene-seqData", "res-null-ribo-rna-seqData.rda"))
+load(file.path(permute_dir, "permute-per-gene-seqData", "res-null-ribo-pro-seqData.rda"))
+load(file.path(permute_dir, "permute-per-gene-seqData", "res-null-rna-pro-seqData.rda"))
+```
+
+
+Each of the rdas contains 1,000 data.frames of 3,188 genes' results of Likelihood
+ratio statistics, associated p-values, and q-values (using qvalue package).
+
+For each gene *i*, the null distribution of its LR statistic is the distribution
+of the LR statistics across the 1,000 permutations.
+
+```{r}
+gene_i <- sapply(res_null_ribo_rna_seqData, function(per_permute) {
+                  per_permute$LRatio[1]  
+                })
+
+hist(gene_i, main = "Gene i histogram",
+     xlab = "Permutation-based likelihood ratio statistic")
+```
+
+
+```{r, eval = FALSE}
+load(file.path(rdadir, "diff_diver_LR.rda"))
+
+# Compute empirical p-value for every gene
+riborna_perm_seqData <- get_perm_pvals(res_null_ribo_rna_seqData, res.riborna_LR)
+ribopro_perm_seqData <- get_perm_pvals(res_null_ribo_pro_seqData, res.ribopro_LR)
+rnapro_perm_seqData <- get_perm_pvals(res_null_rna_pro_seqData, res.rnapro_LR)
+
+
+save(riborna_perm_seqData, ribopro_perm_seqData,
+     rnapro_perm_seqData, file = file.path(rdadir, "null_interact_seqData.rda") )
+```
+
+
+```{r}
+load(file.path(rdadir, "null_interact_seqData.rda"))
+hist(riborna_perm_seqData, main = "Ribo vs. RNA",
+     xlab = "Permutation-based p-value")
+
+hist(ribopro_perm_seqData, main = "Ribo vs. Protein",
+     xlab = "Permutation-based p-value")
+
+hist(rnapro_perm_seqData, main = "Ribo vs. Protein",
+     xlab = "Permutation-based p-value")
+```
+
+
+Within species
+==================
+
+```{r}
+# Permuted results are saved locally on Joyce Hsiao's computer
+# Not enough storage space on GitHub
+
+permute_dir <- "~/Dropbox/Github/primate_ribo_rdas_permute/"
+
+# Interaction test results
+# Sample lables shuffled within technologies
+load(file.path(permute_dir, "permute-per-gene-species", "res-null-ribo-rna-species.rda"))
+load(file.path(permute_dir, "permute-per-gene-species", "res-null-ribo-pro-species.rda"))
+load(file.path(permute_dir, "permute-per-gene-species", "res-null-rna-pro-species.rda"))
+```
+
+
+Each of the rdas contains 1,000 data.frames of 3,188 genes' results of Likelihood
+ratio statistics, associated p-values, and q-values (using qvalue package).
+
+
+
+```{r, eval = FALSE}
+load(file.path(rdadir, "diff_diver_LR.rda"))
+
+# Compute empirical p-value for every gene
+riborna_perm_species <- get_perm_pvals(res_null_ribo_rna_species, res.riborna_LR)
+ribopro_perm_species <- get_perm_pvals(res_null_ribo_pro_species, res.ribopro_LR)
+rnapro_perm_species <- get_perm_pvals(res_null_rna_pro_species, res.rnapro_LR)
+
+
+save(riborna_perm_species, ribopro_perm_species,
+     rnapro_perm_species, file = file.path(rdadir, "null_interact_species.rda") )
+```
+
+
+```{r}
+load(file.path(rdadir, "null_interact_species.rda"))
+hist(riborna_perm_species, main = "Ribo vs. RNA",
+     xlab = "Permutation-based p-value")
+
+hist(ribopro_perm_species, main = "Ribo vs. Protein",
+     xlab = "Permutation-based p-value")
+
+hist(rnapro_perm_species, main = "Ribo vs. Protein",
+     xlab = "Permutation-based p-value")
+```
+
+
+
+
+Across technology and species
+==============================
+
+```{r}
+# Permuted results are saved locally on Joyce Hsiao's computer
+# Not enough storage space on GitHub
+
+permute_dir <- "~/Dropbox/Github/primate_ribo_rdas_permute/"
+
+# Interaction test results
+# Sample lables shuffled within technologies
+load(file.path(permute_dir, "permute-per-gene", "res-null-ribo-rna-per-gene.rda"))
+load(file.path(permute_dir, "permute-per-gene", "res-null-ribo-pro-per-gene.rda"))
+load(file.path(permute_dir, "permute-per-gene", "res-null-rna-pro-per-gene.rda"))
+```
+
+
+Each of the rdas contains 1,000 data.frames of 3,188 genes' results of Likelihood
+ratio statistics, associated p-values, and q-values (using qvalue package).
+
+
+
+```{r, eval = FALSE}
+load(file.path(rdadir, "diff_diver_LR.rda"))
+
+# Compute empirical p-value for every gene
+riborna_perm <- get_perm_pvals(res_null_ribo_rna_per_gene, res.riborna_LR)
+ribopro_perm <- get_perm_pvals(res_null_ribo_pro_per_gene, res.ribopro_LR)
+rnapro_perm <- get_perm_pvals(res_null_rna_pro_per_gene, res.rnapro_LR)
+
+
+save(riborna_perm, ribopro_perm,
+     rnapro_perm, file = file.path(rdadir, "null_interact.rda") )
+```
+
+
+```{r}
+load(file.path(rdadir, "null_interact.rda"))
+
+hist(riborna_perm, main = "Ribo vs. RNA",
+     xlab = "Permutation-based p-value")
+
+hist(ribopro_perm, main = "Ribo vs. Protein",
+     xlab = "Permutation-based p-value")
+
+hist(rnapro_perm, main = "RNA vs. Protein",
+     xlab = "Permutation-based p-value")
+```
+
+
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
+
+
+

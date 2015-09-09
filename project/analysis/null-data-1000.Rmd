@@ -1,7 +1,7 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "Permutation-based significance testing"
+    title: "Permutation-based significance testing for divergence tables"
     theme: default
 ---
 
