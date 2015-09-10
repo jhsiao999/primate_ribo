@@ -1,0 +1,458 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "RNA-Ribo divergence conditioned on RNA-Protein divergence"
+    theme: default
+---
+
+
+RNA-Ribo divergence conditioned on RNA-Protein divergence
+===========================================================
+
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+Goal
+====
+
+We investigate protein divergence relative to RNA divergence and consider
+if buffering at the protein level is likely to be associated with 
+buffering at the Ribo level, and if a pattern of non-buffering at the protein level is likely to be associated with a pattern of non-buffering at the
+Ribo level.
+
+
+
+Definitions
+===========
+
+Of all the 3,188 genes included in the analysis, we apply divergence
+definition version-20150101 and investigate divergence of genes that
+are consistent with the following three patterns. This is the **interaction
+approach** described in [Buffering/Version-20150101/Attenuated regulatory
+divergence/RNA-protein divergence conditioned on RNA-Ribo divergence](http://jhsiao999.github.io/primate_ribo/project/analysis/TE-genes-ribo-pro-buffering.html).
+
+**Interaction approach**
+
+1. **buffered** at the protein level relative to the RNA level 
+    * Sig. different between RNA and protein divergence) *AND* 
+      (the absolute value of protein divergence 
+      is smaller than the absolute value of RNA divergence) 
+
+2. **non-buffered** at the protein level relative to the RNA level
+    * Sig. different between RNA and protein divergence)  *AND*
+      (the absolute value of protein divergence is greater 
+      than the absolute value of RNA divergence) 
+      
+3. **null divergence**: of the 3,188 genes, those that do not fall in the 
+    above two categories; or equivalently, the genes that do not have a
+    pattern that is consistent with significant species difference
+    between the RNA and the protein level
+    
+
+
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
+
+## load LRT results of RNA vs. Ribo divergence
+load(file.path(rdadir,"TEnew.rda"))
+
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
+```
+
+
+
+## RNA vs. Ribo divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
+
+## Genes with RNA > Ribo in effect sizes
+ii_rnaGTribo <- abs(xy.riborna$rna) > abs(xy.riborna$ribo)
+
+## Genes with RNA < Ribo in effect sizes
+ii_riboGTrna <- abs(xy.riborna$ribo) > abs(xy.riborna$rna)
+```
+
+
+## RNA vs. Protein divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+
+## Genes with RNA > Protein in effect sizes
+ii_rnaGTpro <- abs(xy.rnapro$rna) > abs(xy.rnapro$pro)
+
+## Genes with RNA < Protein in effect sizes
+ii_proGTrna <- abs(xy.rnapro$pro) > abs(xy.rnapro$rna)
+```
+
+
+Gene classification
+===================
+
+```{r}
+buffer_mat <- rbind.data.frame(RNA_GT_Protein = sum(ii_rnaGTpro & ii_sig_rnapro),
+                               RNA_LT_Protein = sum(ii_proGTrna & ii_sig_rnapro),
+                               RNA_NULL_Protein = sum(!ii_sig_rnapro))
+colnames(buffer_mat) <- "# of genes"
+kable(buffer_mat)
+
+```
+
+
+
+
+
+RNA ~ Protein
+==============
+
+
+Among ``r sum( !ii_sig_rnapro )`` genes that are neither 
+enhanced nor attenuated at the protein level compared to the RNA level 
+(RNA ~ Protein), we identified ``r sum( !ii_sig_rnapro & ii_sig_rnaribo)`` genes 
+with significant RNA-Ribo interaction and further classifed these genes as 
+follows
+
+* ``r sum( ii_rnaGTribo & ii_sig_rnaribo & !ii_sig_rnapro )`` genes are 
+  buffered at the translation level relative to the transcript level, and
+
+* ``r sum( ii_riboGTrna & ii_sig_rnaribo & !ii_sig_rnapro )`` genes are consistent with a pattern of non-buffered genes at the tranlsation level relative to the
+  transcript level.
+
+
+
+```{r}
+ii_null_rnapro <- !(ii_sig_rnapro)
+ii_null_rnapro_ribo_buff <- ii_rnaGTribo & ii_sig_rnaribo & !ii_sig_rnapro
+ii_null_rnapro_ribo_nonbuff <- ii_riboGTrna & ii_sig_rnaribo & !ii_sig_rnapro
+
+boxplot(abs(dmat_unnormed$rna[ii_null_rnapro]),
+        abs(dmat_unnormed$ribo[ii_null_rnapro]),
+        abs(dmat_unnormed$pro[ii_null_rnapro]), 
+        axes = F, ylim = c(0, 10))
+axis(1, at = c(1,2,3), labels = c("RNA", "Ribo", "Protein"), 
+     col = "white")
+axis(2)
+points_cols <- c("Scarlet", "Sunglow", "Shamrock")
+points(rep(1, sum(ii_null_rnapro)), 
+       abs(dmat_unnormed$rna[ii_null_rnapro]), 
+       pch = 19, cex = .5, 
+       col = crayon[points_cols[1]] )
+points(rep(2, sum(ii_null_rnapro)), 
+       abs(dmat_unnormed$ribo[ii_null_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[2]] )
+points(rep(3, sum(ii_null_rnapro)), 
+       abs(dmat_unnormed$pro[ii_null_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[3]] )
+text(2, 10, adj = 0,
+     label = paste("RNA ~ Protein", sum(ii_null_rnapro), "genes" ) )
+text(2, 9, adj = 0,
+     label = paste("RNA ~ Protein & sig. RNA-Ribo", 
+                   sum(ii_null_rnapro & ii_sig_rnaribo), "genes" ) )
+text(2, 8, adj = 0,
+     label = paste("Buffered at translation", 
+       sum(ii_null_rnapro_ribo_buff), "genes; \n",
+       round(100*sum(ii_null_rnapro_ribo_buff)/
+               sum(ii_null_rnapro & ii_sig_rnaribo), 2), "%") )
+text(2, 7, adj = 0,
+     label = paste("Non-buffered translation", 
+       sum(ii_null_rnapro_ribo_nonbuff), "genes; \n",
+       round(100*sum(ii_null_rnapro_ribo_nonbuff)/
+               sum(ii_null_rnapro & ii_sig_rnaribo), 2), "%") )
+title(main = "RNA ~ Protein, no sig. diff. divergence",
+      ylab = "absolute divergence (human-chimpanzee fold change)")
+
+
+# # Compute pairwise p-values between effect sizes of Ribo, RNA, and protein
+# # among genes with RNA ~ Protein
+# rna_ribo_t <- t.test( abs(dmat_unnormed$rna[ii_proNULLrna]),
+#        abs(dmat_unnormed$ribo[ii_proNULLrna]), paired = TRUE )
+# rna_pro_t <- t.test( abs(dmat_unnormed$rna[ii_proNULLrna]),
+#        abs(dmat_unnormed$pro[ii_proNULLrna]), paired = TRUE )
+# ribo_pro_t <- t.test( abs(dmat_unnormed$ribo[ii_proNULLrna]),
+#        abs(dmat_unnormed$pro[ii_proNULLrna]), paired = TRUE )
+# 
+# text(.5, 10, adj = 0,
+#      label = paste("Paired t-test of effect sizes") )
+# text(.5, 9, adj = 0,
+#      label = paste("RNA vs. Ribo: p-value < 1e-14") )
+# text(.5, 8, adj = 0,
+#      label = paste("RNA vs. Protein: p-value < 1e-15") )
+# text(.5, 7, adj = 0,
+#      label = paste("Ribo vs. Protein: p-value < 1e-15") )
+# 
+```
+
+
+## Signal in RNA ~ Protein
+
+
+```{r}
+## RNA-Ribo buffering or non-buffering
+ii_null_rnapro_ribo_buff <- !ii_sig_rnapro & ii_rnaGTribo & ii_sig_rnaribo
+ii_null_rnapro_ribo_nonbuff <- !ii_sig_rnapro & ii_riboGTrna & ii_sig_rnaribo
+
+## RNA-Protein buffering or non-buffering
+ii_null_rnapro_pro_buff <- !ii_sig_rnapro & ii_rnaGTpro & ii_sig_rnaribo
+ii_null_rnapro_pro_nonbuff <- !ii_sig_rnapro & ii_proGTrna & ii_sig_rnaribo
+
+plot_mat <- matrix(0, 2, 2)
+rownames(plot_mat) <- c("RNA-Ribo buffered", "RNA-Ribo non-buffered")
+colnames(plot_mat) <- c("RNA-Protein buffered", "RNA-Protein non-buffered")
+
+plot_mat[1,1] <- sum(ii_null_rnapro_ribo_buff & ii_null_rnapro_pro_buff)
+plot_mat[1,2] <- sum(ii_null_rnapro_ribo_buff & ii_null_rnapro_pro_nonbuff)
+plot_mat[2,1] <- sum(ii_null_rnapro_ribo_nonbuff & ii_null_rnapro_pro_buff)
+plot_mat[2,2] <- sum(ii_null_rnapro_ribo_nonbuff & ii_null_rnapro_pro_nonbuff)
+
+kable(plot_mat)
+```
+
+
+### Buffered at translation
+
+Among the ``r sum(ii_null_rnapro_ribo_buff)`` genes that were buffered
+at the translation level relative to the transcript level, we tested the null hypothesis that these genes are 
+as likely to be buffered as to be non-buffered at the protein level relative to 
+the transcript level (RNA-Protein). If this null hypothesis were rejected and 
+the number of genes that were buffered at the protein layer is larger than 
+the number of non-buffered genes at the protein layer, then we say that 
+buffering at the translation level is more likey to co-occur with
+buffering at the protein level than with non-buffering at the protein level.
+
+
+```{r}
+prop.test(plot_mat[1,1], rowSums(plot_mat)[1])
+```
+
+
+### Not buffered at translation
+
+Among the ``r sum(ii_null_rnapro_ribo_nonbuff)`` genes that were not buffered
+at translation, we tested the null hypothesis that these genes are as likely
+to be non-buffered as to be buffered at the protein layer. If this null 
+hypothesis were rejected and the number of genes that were not buffered at the 
+protein layer is more than those buffered at the protein layer, then we 
+say that genes that are non-buffered at the translation level are more likely 
+to be non-buffered at the protein level than to be buffered at the protein level.
+
+
+```{r}
+## One-proportion z-test
+prop.test(plot_mat[2,2], rowSums(plot_mat)[2])
+
+## Exact test of proportions (binomial test)
+binom.test(plot_mat[2,2], rowSums(plot_mat)[2])
+```
+
+
+
+
+
+RNA > Protein
+==============
+
+Among the genes that are buffered at the protein level compared to the 
+RNA level (RNA > protein), we are interested in the number of genes with
+buffered translation. In other words, we ask whether genes that were
+buffered at the protein level were more likely to be enriched with
+genes buffered at the translation level.
+
+For the hypothesis testing, we compute the expected proportion of genes
+enriched at the translation level among the genes that were buffered at the
+protein level in the set of genes where there is no significant interaction
+between RNA and protein (``r sum(ii_null_rnapro)`` genes).
+
+
+```{r}
+boxplot(abs(dmat_unnormed$rna[ii_rnaGTpro & ii_sig_rnapro]),
+        abs(dmat_unnormed$ribo[ii_rnaGTpro & ii_sig_rnapro]),
+        abs(dmat_unnormed$pro[ii_rnaGTpro & ii_sig_rnapro]), 
+        axes = F, ylim = c(0, 10))
+axis(1, at = c(1,2,3), labels = c("RNA", "Ribo", "Protein"), 
+     col = "white")
+axis(2)
+points_cols <- c("Scarlet", "Sunglow", "Shamrock")
+points(rep(1, sum(ii_rnaGTpro & ii_sig_rnapro)), 
+       abs(dmat_unnormed$rna[ii_rnaGTpro & ii_sig_rnapro]), 
+       pch = 19, cex = .5, 
+       col = crayon[points_cols[1]] )
+points(rep(2, sum(ii_rnaGTpro & ii_sig_rnapro)), 
+       abs(dmat_unnormed$ribo[ii_rnaGTpro & ii_sig_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[2]] )
+points(rep(3, sum(ii_rnaGTpro & ii_sig_rnapro)), 
+       abs(dmat_unnormed$pro[ii_rnaGTpro & ii_sig_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[3]] )
+text(2.2, 9, adj = 0,
+     label = paste("abs(RNA) > abs(Ribo)", 
+      sum( ii_rnaGTpro & ii_sig_rnapro & ii_rnaGTribo ), "genes; \n",
+      round( 100*sum(ii_rnaGTpro & ii_sig_rnapro & ii_rnaGTribo)/
+             sum(ii_rnaGTpro & ii_sig_rnapro), 2),"%") )
+title(main = paste("RNA > Protein",sum(ii_rnaGTpro & ii_sig_rnapro),
+                   "genes (buffered)"),
+      ylab = "absolute divergence (human-chimpanzee fold change)")
+
+
+## Null proportion of RNA-Protein attenuated | RNA-Ribo attenuated
+rnapro_null_pro_buff <- plot_mat[1, 1]/rowSums(plot_mat)[1]
+
+
+prop.test( sum(ii_rnaGTpro & ii_sig_rnapro & ii_rnaGTribo),
+           sum(ii_rnaGTpro & ii_sig_rnapro), p = rnapro_null_pro_buff)
+
+binom.test( sum(ii_rnaGTpro & ii_sig_rnapro & ii_rnaGTribo),
+           sum(ii_rnaGTpro & ii_sig_rnapro), p = rnapro_null_pro_buff)
+```
+
+
+
+
+
+RNA < Protein
+==============
+
+Among the genes that are not buffered at the protein level compared to the 
+RNA level (RNA > protein), we are interested in the number of genes that 
+are also not buffered at the translation level.
+In other words, we ask whether genes that were
+buffered at the protein level were more likely to be enriched with
+genes that are also not buffered at the translation level.
+
+For the hypothesis testing, we compute the expected proportion of genes
+enriched at the translation level among the genes that were not buffered at the
+protein level in the set of genes where there is no significant interaction
+between RNA and protein (``r sum(ii_null_rnapro)`` genes).
+
+
+
+```{r}
+boxplot(abs(dmat_unnormed$rna[ii_proGTrna & ii_sig_rnapro]),
+        abs(dmat_unnormed$ribo[ii_proGTrna & ii_sig_rnapro]),
+        abs(dmat_unnormed$pro[ii_proGTrna & ii_sig_rnapro]), 
+        axes = F, ylim = c(0, 10))
+axis(1, at = c(1,2,3), labels = c("RNA", "Ribo", "Protein"), 
+     col = "white")
+axis(2)
+points_cols <- c("Scarlet", "Sunglow", "Shamrock")
+points(rep(1, sum(ii_proGTrna & ii_sig_rnapro)), 
+       abs(dmat_unnormed$rna[ii_proGTrna & ii_sig_rnapro]), 
+       pch = 19, cex = .5, 
+       col = crayon[points_cols[1]] )
+points(rep(2, sum(ii_proGTrna & ii_sig_rnapro)), 
+       abs(dmat_unnormed$ribo[ii_proGTrna & ii_sig_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[2]] )
+points(rep(3, sum(ii_proGTrna & ii_sig_rnapro)), 
+       abs(dmat_unnormed$pro[ii_proGTrna & ii_sig_rnapro]), 
+       pch = 19, cex = .5,
+       col = crayon[points_cols[3]] )
+text(1.5, 9, adj = 0,
+     label = paste("Protein > RNA", 
+                   sum(ii_proGTrna & ii_sig_rnapro), "genes" ) )
+text(1.5, 8, adj = 0,
+     label = paste("Not buffered at translation", 
+      sum(ii_proGTrna & ii_sig_rnapro & ii_riboGTrna), "genes; \n",
+      round(100*sum(ii_proGTrna & ii_sig_rnapro & ii_riboGTrna)/
+              sum(ii_proGTrna & ii_sig_rnapro),
+            2),"%") )
+title(main = paste("RNA < Protein",sum(ii_proGTrna & ii_sig_rnapro),
+                  "genes (Non-buffering)"),
+      ylab = "absolute divergence (human-chimpanzee fold change)")
+
+
+## Null proportion of RNA-Ribo enhanced | RNA-Protein enhanced
+rnapro_null_pro_nonbuff <- plot_mat[2,2]/rowSums(plot_mat)[2]
+
+prop.test( sum(ii_proGTrna & ii_sig_rnapro & ii_riboGTrna),
+           sum(ii_proGTrna & ii_sig_rnapro), p = rnapro_null_pro_nonbuff)
+
+binom.test( sum(ii_proGTrna & ii_sig_rnapro & ii_riboGTrna),
+           sum(ii_proGTrna & ii_sig_rnapro), p = rnapro_null_pro_nonbuff)
+```
+
+
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
+

@@ -1,0 +1,170 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "RNA vs. Protein divergence"
+    theme: default
+    theme.chooser: TRUE
+    highlight.chooser: TRUE
+---
+
+RNA vs. Protein divergence
+=================================
+
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+[view source](compare-rna-pro-divergence-20150812.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, 
+               bootstrap.show.code = TRUE)
+```
+
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+Goal
+=====
+
+Compute the number of genes attenuated or enhanced at the protein level 
+compared to the RNA level.
+
+
+Definitions
+============
+
+The set of genes that are significant in inter-species difference of 
+RNA vs. protein can be divided into two categories, and within each of the 
+categories, the genes can further be divided into two subcategories as follows
+
+1. ( abs(inter-species RNA FC) > abs(inter-species Protein FC) ) OR
+   ( inter-species RNA FC and inter-species Protein FC are of 
+     the opposite direction) - **Attenuation at the protein level**
+       
+2. ( abs(inter-species RNA FC) < abs(inter-species Protein FC) ) AND
+   ( inter-species RNA FC and inter-species Protein FC are of the
+     same direction) - **Enhancement at the protein level**
+
+
+
+
+
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before quantile normalization. 
+
+
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+## load LRT results of DE analysis
+load(file.path(rdadir,"DE.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
+```
+
+
+Define subsets of genes at FDR < .01.
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+
+
+## Category 1 - Enhanced divergence, criteria are as follows
+## a) Sig. RNA vs. Protein difference, AND
+## b) ( abs(RNA FC) < abs(Protein FC) ) AND ( RNA FC * Protein FC > 0)
+ii_proGTrna <- (ii_sig_rnapro) & 
+               ( (abs(xy.rnapro$pro) > abs(xy.rnapro$rna)) & 
+                 (xy.rnapro$rna * xy.rnapro$pro > 0 ) )
+
+
+## Category 2 - Attenuated divergence, criteria are as follows
+## a) Sig. RNA vs. Protein diff., AND
+## b) ( abs(RNA FC) > abs(Protein FC) ) OR ( RNA FC * Protein FC < 0)
+ii_rnaGTpro <- (ii_sig_rnapro) & 
+               ( (abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) | 
+                 (xy.rnapro$rna * xy.rnapro$pro < 0) ) 
+
+
+Protein_refmat <- rbind.data.frame( attenuated = sum(ii_rnaGTpro),
+                                    enhanced = sum(ii_proGTrna) )
+colnames(Protein_refmat) <- "# genes"
+kable(Protein_refmat)
+```
+
+
+
+
+
+
+Session information
+===========
+
+```{r}
+sessionInfo()
+```
+

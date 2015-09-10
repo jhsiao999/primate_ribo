@@ -1,0 +1,202 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "RNA-Ribo divergence and RNA-Protein divergence"
+    theme: default
+---
+
+
+RNA-Ribo divergence and RNA-Protein divergence
+==============================================
+
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+[view source](rna-ribo-pro-buffering.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+               bootstrap.panel = TRUE, bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+Goal
+====
+
+Compute number of genes buffered at the translation level and buffered at the 
+protein level relative to divergence at the transcript level.
+
+
+Definitions
+===========
+
+Of all the 3,188 genes included in the analysis, we classifed genes into
+**buffered** and **non-buffered** at the translation level or at the
+protein level as follows
+
+1. RNA-Ribo divergnece
+
+    1.1. **Buffered** at the translation level relative to the RNA level: 
+          sig. difference in translation efficiency AND
+          abs(RNA divergence) > abs(Ribo divergence)
+          
+    1.2. **Non-buffered** at the translation level relative to the RNA level:
+          sig. difference in translation efficiency AND
+          abs(RNA divergence) < abs(Ribo divergence)
+    
+2. RNA-Protein divergnece
+
+    2.1. **Buffered** at the protein level relative to the RNA level: 
+          sig. difference in divergence between RNA and protein AND
+          abs(RNA divergence) > abs(protein divergence)
+          
+    2.2. **Non-buffered** at the protein level relative to the RNA level:
+          sig. difference in divergence between RNA and protein AND
+          abs(RNA divergence) < abs(protein divergence)
+
+    
+
+
+```{r}
+## Load rdas of LRT results and compute fold change estimates using
+## RPKM values before normalization. 
+
+## load LRT results of RNA vs. Ribo divergence
+load(file.path(rdadir,"TEnew.rda"))
+
+## load LRT results of RNA vs. Protein divergence
+load(file.path(rdadir,"rnapro.rda"))
+
+
+## Compute fold changes based on un-normalized data
+## from the object eSetRRP.log2 in eSetRRP.rda
+load( file.path(rdadir,"eSetRRP.rda") )
+
+eSet.temp <- eSetRRP.log2[ ,eSetRRP.log2$species!="rhesus"]
+
+fc.mat <- lapply( seq_along( c("human","chimp") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp")[i]
+  eSet.tt <- eSet.temp[, ii]
+  emat <- lapply( seq_along( c("ribo","rna","protein") ), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","rna","protein")[j]
+    rowMeans( exprs(eSet.tt[, jj] ), na.rm=TRUE )
+  })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","rna","protein")
+  return( data.frame(emat) )
+})
+names(fc.mat) <- c("human","chimp")
+
+dmat_unnormed <- data.frame( ribo = fc.mat$human$ribo-fc.mat$chimp$ribo,
+                             rna = fc.mat$human$rna-fc.mat$chimp$rna,
+                             pro = fc.mat$human$protein-fc.mat$chimp$protein )
+
+xy.rnapro <- data.frame( rna = dmat_unnormed$rna,
+                         pro = dmat_unnormed$pro )
+xy.riborna <- data.frame( rna = dmat_unnormed$rna,
+                          ribo = dmat_unnormed$ribo )
+xy.ribopro <- data.frame( ribo = dmat_unnormed$ribo,
+                          pro = dmat_unnormed$pro )
+```
+
+
+
+Gene classification
+===================
+
+## RNA vs. Ribo divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and Ribo
+ii_sig_rnaribo <- res.riborna$int.qval < .01
+
+
+## Buffered divergence
+## a) Sig. RNA vs. Ribo difference, AND
+## b) ( abs(RNA FC) > abs(Ribo FC) ) 
+ii_rnaGTribo <- (ii_sig_rnaribo) & 
+                ( abs(xy.riborna$rna) > abs(xy.riborna$ribo) ) 
+
+## Non-buffered divergence
+## a) Sig. RNA vs. Ribo diff., AND
+## b) ( abs(RNA FC) < abs(Ribo FC) ) 
+ii_riboGTrna <- (ii_sig_rnaribo) &  
+                ( abs(xy.riborna$rna) < abs(xy.riborna$ribo) ) 
+
+Ribo_refmat <- rbind.data.frame(buffered = sum(ii_rnaGTribo),
+                                nonbuffered = sum(ii_riboGTrna) )
+colnames(Ribo_refmat) <- "# genes"
+kable(Ribo_refmat)
+```
+
+
+## RNA vs. Protein divergence
+
+```{r}
+## Genes with sig. human/chimp difference in divergence between RNA and protein
+ii_sig_rnapro <- res.rnapro$int.qval < .01
+
+## Buffered divergence
+## a) Sig. RNA vs. Protein difference, AND
+## b) ( abs(RNA FC) > abs(Protein FC) ) 
+ii_rnaGTpro <- (ii_sig_rnapro) &  
+               ( abs(xy.rnapro$rna) > abs(xy.rnapro$pro) ) 
+                 
+
+
+## Non-buffered divergence
+## a) Sig. RNA vs. Protein diff., AND
+## b) ( abs(RNA FC) < abs(Protein FC) ) 
+ii_proGTrna <- (ii_sig_rnapro) &  
+               ( abs(xy.rnapro$rna) < abs(xy.rnapro$pro) ) 
+
+
+Protein_refmat <- rbind.data.frame( buffered = sum(ii_rnaGTpro),
+                                    nonbuffered = sum(ii_proGTrna) )
+colnames(Protein_refmat) <- "# genes"
+kable(Protein_refmat)
+```
+
+
+
+
+Session information
+===================
+
+```{r}
+sessionInfo()
+```
+

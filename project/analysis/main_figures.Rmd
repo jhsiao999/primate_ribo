@@ -1,0 +1,3723 @@
+---
+title: "Figures and summaries"
+output: pdf_document
+toc: true
+number_sections: true
+---
+
+\pagebreak
+
+```{r setUp,eval=TRUE,echo=FALSE,message=FALSE}
+library(Biobase)
+rm(list=ls())
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir,"figs")
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+load(file=file.path(rdadir,"normeddatasub.rda"))
+load(file=file.path(rdadir,"eSetRRP.rda"))
+load(file=file.path(rdadir,"DE.rda"))
+load(file=file.path(rdadir,"eSetRRP.Q.all.rda"))
+
+# get plotting default parameters
+op = par()
+```
+
+# Figure 1
+
+Both mRNA and Ribosome Profiling data, unstandardized and normalized
+
+```{r,eval=TRUE,echo=FALSE}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir,"figs")
+rdadir = file.path(dir,"rdas")
+load(file=file.path(rdadir,"normeddatasub.rda"))
+
+
+par(mfrow=c(1,1),las=1)
+matExpr = exprs(eSetGM.Q)
+ii.na = which(is.na(matExpr),arr.ind=TRUE)
+for (i in 1:dim(ii.na)[1]) {
+  matExpr[ii.na[i,1],ii.na[i,2]] = .5   
+}
+matExpr = log2(matExpr)
+cmatExpr = sweep(t(matExpr),2,colMeans(t(matExpr),na.rm=T),"-")
+sv=svd(cmatExpr)
+svmat=cbind(sv$u[,1],sv$u[,2])
+rownames(svmat) <- paste(pData(eSetGM.Q)$seqData,pData(eSetGM.Q)$species,sep=".")
+
+pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+              "pca_riborna_standardized.pdf"),width=2.3,height=2.3)
+par( mfrow = c(1, 1), mar = c(2, 1.8, 1, 0), mgp = c(.5, .1, 0) )
+require(broman)
+crayon <- brocolors("crayons")
+cols <- c(rep(crayon["Black"], 
+              sum(eSetGM.Q$seqData=="rna" & eSetGM.Q$species =="chimp") ),
+       rep(crayon["Scarlet"], sum(eSetGM.Q$seqData=="rna" & eSetGM.Q$species =="human") ),
+       rep(crayon["Fern"], sum(eSetGM.Q$seqData=="rna" & eSetGM.Q$species =="rhesus") ) )
+points=c(rep(19,sum(eSetGM.Q$seqData=="rna")),rep(2,sum(eSetGM.Q$seqData=="ribo")))
+plot(svmat[,1],svmat[,2],main="",xlab="",ylab="", axes = F, cex = 1,
+     col=cols,bg=cols,pch=points,xlim=c(-.4,.4),ylim=c(-.4,.4), lwd = 1.2 )
+axis(1, tck = -.03, cex.axis = .4, lwd = .4)
+axis(2, tck = -.03, cex.axis = .4, lwd = .4)
+title(xlab="First principal component \n (22% of total variation)", line=1, cex.lab = .4)
+title(ylab="Second principal component \n (17 % of total variation)", line=.8, cex.lab = .4)
+dev.off()
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "pca_riborna_standardized_legend.pdf"), width=2,height=.6)
+par(mar=c(0,0,0,0))
+plot(0, 1, xlim=c(0,6),ylim=c(0,4),axes=F, pch ="")
+text(.2, 2,"Ribo",cex=.5, adj = 0)
+text(.2, 1,"mRNA",cex=.5, adj = 0)
+points(x = c(.9, 2.2, 3.4) + .6,y = rep(2, 3), pch = 2, 
+       col = c(crayon["Scarlet"], crayon["Black"], crayon["Fern"] ) )
+points(x = c(.9, 2.2, 3.4) + .6, y = rep(1, 3), pch = 19, 
+       col = c(crayon["Scarlet"], crayon["Black"], crayon["Fern"] ) )
+text(x = c(.9, 2.2, 3.4) + .2, rep(3, 3), labels = c("Human", "Chimp", "Rhesus"), 
+     cex=.5, adj = 0)
+dev.off()
+
+```
+
+```{r}
+# percent variance explained by each principal component
+eigen = sv$d^2
+round(100*(eigen/sum(eigen)),2)
+
+# barplot(round(100*(eigen/sum(eigen)),2),xlab="principle components ordered by % variance explained",ylab="% variance explained by the PC component",ylim=c(0,40))
+```
+
+
+
+# Figure 2
+
+
+Overlay distributions of gene-wise correlation between molecular phenotypes
+
+
+```{r}
+library(Biobase)
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+# source(file.path( codedir, "prepareDivergencePlots.R"))
+require(broman)
+crayon <- brocolors("crayons")
+
+load(file=file.path(rdadir,"eSetRRP.Q.all.rda"))
+
+mat1 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="rna"]
+mat2 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="ribo"]
+corrs = sapply(1:dim(mat1)[1], function(i) {
+  cor(mat1[i,],mat2[i,],use="pairwise.complete.obs",method="spearman")  
+})
+corrs.riborna = unlist(corrs)
+
+mat1 = exprs(eSetRRP.Q.all)[ ,eSetRRP.Q.all$seqData=="protein"]
+mat2 = exprs(eSetRRP.Q.all)[ ,eSetRRP.Q.all$seqData=="ribo"]
+corrs = sapply(1:dim(mat1)[1], function(i) {
+  cor(mat1[i,],mat2[i,],use="pairwise.complete.obs",method="spearman")  
+})
+corrs.ribopro = unlist(corrs)
+
+
+mat1 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="protein"]
+mat2 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="rna"]
+corrs = sapply(1:dim(mat1)[1], function(i) {
+  cor(mat1[i,],mat2[i,],use="pairwise.complete.obs",method="spearman")  
+})
+corrs.rnapro = unlist(corrs)
+
+
+pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+              "corr_genes_divergence_genes_overlay.pdf"),
+    height = 2.5, width = 2.5)
+require(broman)
+require(scales)
+crayon <- brocolors("crayon")
+cols = c(crayon["Red Orange"],
+         crayon["Pine Green"],
+         crayon["Navy Blue"])
+col.border <- "grey40"
+cex.main <- .6
+cex.mtext <- .6
+par(mfrow=c(1,1),mgp=c(.8, .3 , 0), mar = c(4.5, 1.5, 1.2, .2), lwd = .3)
+#Spearman's correlation between ribo and rna
+hist_riborna <- hist(corrs.riborna, breaks=seq(-1,1,.05),
+     plot = FALSE)
+hist_rnapro <- hist(corrs.rnapro, breaks=seq(-1,1,.05),
+     plot = FALSE)
+hist_ribopro  <- hist(corrs.ribopro, breaks=seq(-1,1,.05),
+     plot = FALSE)
+plot(hist_riborna, xlim = c(-1,1), ylim = c(0,200), border = col.border,
+     axes = F, xlab ="", ylab = "", main = "",
+     col = alpha( cols[1], .6) ) 
+plot(hist_ribopro, col = alpha(cols[3], .4), add = TRUE)
+title(ylab = "Frequency", cex.lab = .6, line = .8)
+title(xlab = "Spearman's rank correlation", cex.lab = .6, line = .8)
+axis(1, tck = -.03, cex.axis = .6, lwd = .6, line = -.1)
+axis(2, tck = -.03, cex.axis = .6, lwd = .6, line = -.1)
+text(median(corrs.riborna) + .25,200, adj = 1,
+     label = round(median(corrs.riborna),2 ) , cex = cex.mtext)
+abline(v=median(corrs.riborna), col = cols[1], 
+     lwd = 3)
+text(median(corrs.ribopro) - .25,200, adj = 0,
+     label = round(median(corrs.ribopro),2) , cex = cex.mtext)
+abline(v=median(corrs.ribopro), col = crayon["Navy Blue"], 
+     lwd = 3)
+dev.off()
+
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "corr_genes_divergence_genes_overlay_legend.pdf"),
+    width = 4, height = 1)
+require(scales)
+crayon <- brocolors("crayon")
+cols <- c(alpha(crayon["Red Orange"],.6), alpha(crayon["Pine Green"], .6),
+          alpha(crayon["Navy Blue"],.4))
+par(mar = rep(0,4))
+plot(0, pch = "", xlab ="", ylab = "", xlim = c(0,6), ylim = c(0,2.5) )
+#     axes = T)
+#text(0,1.25, adj = 0, labels = "Per gene Spearman's correlation between", cex = .6)
+rect(0,.1, .6, .3, col = cols[3], lwd = .5)
+rect(0, .45, .6, .65, col = cols[1], lwd = .5)
+rect(0, .8, .6, 1, col = cols[2], lwd = .5)
+text(.7,.20, adj = 0, labels = "Correlation between mRNA and Protein levels", cex = .6)
+text(.7, .55, adj = 0, labels = "Correlation between mRNA and Ribosome occupancy levels", cex = .6)
+text(.7, .90, adj = 0, labels = "Correlation between mRNA and Protein levels", cex = .6)
+dev.off()
+```
+
+
+
+
+
+
+Histograms of gene-wise correlation between molecular phenotypes
+
+```{r}
+pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+              "corr_genes_divergence_genes.pdf"), height = 1.6, width = 2.4)
+require(broman)
+require(scales)
+crayon <- brocolors("crayon")
+cols = c(alpha(crayon["Red Orange"], .6),
+         alpha(crayon["Pine Green"], .6),
+         alpha(crayon["Navy Blue"], .4) )
+cols2 = c(alpha(crayon["Red Orange"], 1),
+         alpha(crayon["Pine Green"], 1),
+         alpha(crayon["Navy Blue"], 1) )
+col.border <- "grey40"
+cex.main <- .6
+cex.mtext <- .6
+par(mfrow=c(1,1),mgp=c(.8, 0 , 0), mar = c(1.5, 1.5, 1.2, .2), lwd = .3)
+
+corrs <- list(corrs.riborna, corrs.rnapro, corrs.ribopro)
+labels <- c("mRNA vs. Ribosome occupancy expression",
+            "mRNA vs. protein expression",
+            "Ribosome occupancy vs. protein expression")
+#Spearman's correlation between ribo and rna
+for (i in 1:length(corrs)) {
+corr_plot <- corrs[[i]]
+hist(corr_plot,main="",
+     breaks=seq(-1,1,.05),xlim=c(-1,1),ylim=c(0,200),
+     col=alpha(cols[i],.6), border=col.border, axes = F, ylab ="", xlab ="")
+title(ylab = "Frequency", cex.lab = .6, line = .8)
+title(xlab = "Spearman's rank correlation", cex.lab = .6, line = .5)
+axis(1, tck = -.04, cex.axis = .6, lwd = .6, line = -.1)
+axis(2, tck = -.02, cex.axis = .6, lwd = .6, line = -.1)
+title(labels[i], cex.main=cex.main, adj = .5)
+abline(v=median(corr_plot), col = cols2[i], 
+     lwd = 3)
+text(-1, 180, adj = 0,
+     labels=paste("Median Spearman = ",
+                  round(median(corrs[[i]]),2)) ,cex = cex.mtext )
+}
+dev.off()
+
+
+## Test statistical significance of the differences between Spearman's correlations
+## First convert all the correlation coefficients to z scores
+## Each of these z scores follows a normal distribution
+## We will perform t tests on the z scores
+
+z.riborna <- pmin(1, pmax(-1, 0.5*log( (1+corrs.riborna)/(1-corrs.riborna) ) ) )
+z.rnapro <- pmin(1, pmax(-1, 0.5*log( (1+corrs.rnapro)/(1-corrs.rnapro)) ) )
+z.ribopro <- pmin(1, pmax(-1, 0.5*log( (1+corrs.ribopro)/(1-corrs.ribopro) ) ) )
+
+t.test(z.riborna,z.ribopro)
+
+```
+
+
+
+
+Ribo fold change versus RNA fold change among genes differential expression at either Ribo or RNA layer.
+
+Ribo-RNA Scatter
+
+```{r}
+library(Biobase)
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes") 
+source(file.path( codedir, "prepareDivergencePlots.R"))
+
+require(broman)
+crayon <- brocolors("crayons")
+require(RColorBrewer)
+
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaScatter.pdf"),
+    width = 2.5, height = 2.5)
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+# all genes
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+#load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (human/chimp) mRNA", 
+       ylab = "log2 (human/chimp) Ribosome occupancy", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+ii_ribornaDE <- riboRes.Q$qval < .01 | rnaRes.Q$qval < .01
+require(RColorBrewer)
+dcols <- densCols(xy, nbin = 50, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaScatter_legend.pdf"), width=.5,height= 1.1)
+par( mfrow = c(1, 1), mar = c(0, .2, .2, .2), mgp = c(.5, 0, 0) )
+col_dens <- grDevices:::.smoothScatterCalcDensity(xy, nbin=50)
+col_dens <- col_dens$fhat
+col_dens <- col_dens[col_dens>0]
+range(col_dens)
+
+col_legend <- data.frame(density=seq(min(col_dens), max(col_dens), len=10), 
+                   color=I(colorRampPalette(brewer.pal(11, "Spectral"))(10)) )
+plot(NA, xlim=c(0,8), ylim=c(1,12), type="n", ann=FALSE, axes=FALSE)
+rect(0, 1:10, 4, 2:11, border=NA, col=col_legend$col)
+text(5.3, (1:10)+0.5, adj = 0, ceiling(100*col_legend$density),
+     cex = .4)
+text(0, 11.7, adj = 0, "Gene count", cex = .4)
+dev.off()
+
+
+
+ii_all <- riboRes.Q$qval < .01 | massRes.Q$qval < .01 | rnaRes.Q$qval < .01
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaDEall.pdf"),
+    width = 2.5, height = 2.5)
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)[ii_all,]
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (human/chimp) mRNA", 
+       ylab = "log2 (human/chimp) Ribosome occupancy", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+ii_ribornaDE <- riboRes.Q$qval < .01 | rnaRes.Q$qval < .01
+xy_sub <- xy[ii_ribornaDE,]
+require(RColorBrewer)
+dcols <- densCols(xy_sub, nbin = 50, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy_sub, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaDE_legend.pdf"), width=.5,height= 1.1)
+par( mfrow = c(1, 1), mar = c(0, .2, .2, .2), mgp = c(.5, 0, 0) )
+col_dens <- grDevices:::.smoothScatterCalcDensity(xy_sub, nbin=50)
+col_dens <- col_dens$fhat
+col_dens <- col_dens[col_dens>0]
+range(col_dens)
+
+col_legend <- data.frame(density=seq(min(col_dens), max(col_dens), len=10), 
+                   color=I(colorRampPalette(brewer.pal(11, "Spectral"))(10)) )
+plot(NA, xlim=c(0,8), ylim=c(1,12), type="n", ann=FALSE, axes=FALSE)
+rect(0, 1:10, 4, 2:11, border=NA, col=col_legend$col)
+text(5.3, (1:10)+0.5, adj = 0, ceiling(100*col_legend$density),
+     cex = .4)
+text(0, 11.7, adj = 0, "Cell count", cex = .4)
+dev.off()
+```
+
+
+
+Additionl scatter similar to Figure 2a
+
+Ribo-RNA Scatter Human-Rhesus
+```{r}
+library(Biobase)
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+load(file.path(rdadir, "eSetRRP.rda"))
+#source(file.path( codedir, "prepareDivergencePlots.R"))
+eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="chimp"]
+fc.mat=lapply(seq_along(c("human","rhesus")), function(i) {
+  ii = eSet.temp$species==c("human","rhesus")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+  })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","rna","protein")
+  return(data.frame(emat))
+})
+names(fc.mat)=c("human","rhesus")
+dmat_unnormed = data.frame(ribo=fc.mat$human$ribo-fc.mat$rhesus$ribo,
+                           rna=fc.mat$human$rna-fc.mat$rhesus$rna,
+                           pro=fc.mat$human$protein-fc.mat$rhesus$protein)
+
+
+require(broman)
+crayon <- brocolors("crayons")
+require(RColorBrewer)
+
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaScatter_humanrhesus.pdf"),
+    width = 2.5, height = 2.5)
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+#load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (human/rhesus) mRNA", 
+       ylab = "log2 (human/rhesus) Ribosome occupancy", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+ii_ribornaDE <- riboRes.Q$qval < .01 | rnaRes.Q$qval < .01
+require(RColorBrewer)
+dcols <- densCols(xy, nbin = 50, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+```
+
+
+
+Ribo-RNA Scatter Chimp-Rhesus
+```{r}
+library(Biobase)
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+load(file.path(rdadir, "eSetRRP.rda"))
+#source(file.path( codedir, "prepareDivergencePlots.R"))
+eSet.temp = eSetRRP.log2[ ,eSetRRP.log2$species!="human"]
+fc.mat=lapply(seq_along(c("chimp","rhesus")), function(i) {
+  ii = eSet.temp$species==c("chimp","rhesus")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+  })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","rna","protein")
+  return(data.frame(emat))
+})
+names(fc.mat)=c("chimp","rhesus")
+dmat_unnormed = data.frame(ribo=fc.mat$chimp$ribo-fc.mat$rhesus$ribo,
+                           rna=fc.mat$chimp$rna-fc.mat$rhesus$rna,
+                           pro=fc.mat$chimp$protein-fc.mat$rhesus$protein)
+
+
+require(broman)
+crayon <- brocolors("crayons")
+require(RColorBrewer)
+
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaScatter_chimprhesus.pdf"),
+    width = 2.5, height = 2.5)
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+#load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$ribo)
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (chimp/rhesus) mRNA", 
+       ylab = "log2 (chimp/rhesus) Ribosome occupancy", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+ii_ribornaDE <- riboRes.Q$qval < .01 | rnaRes.Q$qval < .01
+require(RColorBrewer)
+dcols <- densCols(xy, nbin = 50, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+```
+
+
+
+
+
+
+Ribo-PRO Scatter
+
+```{r}
+library(Biobase)
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path( codedir, "prepareDivergencePlots.R"))
+
+require(broman)
+crayon <- brocolors("crayons")
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "riboproScatter.pdf"),
+    width = 2.5, height = 2.5)
+# all genes
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+#load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$ribo,y=dmat_unnormed$pro)
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (human/chimp) Ribosome occupancy", 
+       ylab = "log2 (human/chimp) Protein", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+require(RColorBrewer)
+nbin = 50
+dcols <- densCols(xy, n = nbin, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "riboproScatter_legend.pdf"), width=.5,height= 1.1)
+par( mfrow = c(1, 1), mar = c(0, .2, .2, .2), mgp = c(.5, 0, 0) )
+nbin <- 50
+col_dens <- grDevices:::.smoothScatterCalcDensity(xy, nbin=nbin)
+col_dens <- col_dens$fhat
+col_dens <- col_dens[col_dens>0]
+range(col_dens)
+
+col_legend <- data.frame(density=seq(min(col_dens), max(col_dens), len=10), 
+                   color=I(colorRampPalette(brewer.pal(11, "Spectral"))(10)) )
+plot(NA, xlim=c(0,8), ylim=c(1,12), type="n", ann=FALSE, axes=FALSE)
+rect(0, 1:10, 4, 2:11, border=NA, col=col_legend$col)
+text(5.3, (1:10)+0.5, adj = 0, ceiling(100*col_legend$density),
+     cex = .4)
+text(0, 11.7, adj = 0, "Gene count", cex = .4)
+dev.off()
+
+
+ii_all <- riboRes.Q$qval < .01 | massRes.Q$qval < .01 | rnaRes.Q$qval < .01
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "riboproDEall.pdf"),
+    width = 2.5, height = 2.5)
+# all genes
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+#load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$ribo,y=dmat_unnormed$pro)[ii_all,]
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (human/chimp) Ribosome occupancy", 
+       ylab = "log2 (human/chimp) Protein", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+require(RColorBrewer)
+nbin = 50
+dcols <- densCols(xy, n = nbin, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+```
+
+
+RNA-PRO Scatter
+```{r}
+library(Biobase)
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path( codedir, "prepareDivergencePlots.R"))
+
+require(broman)
+crayon <- brocolors("crayons")
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "rnaproScatter.pdf"),
+    width = 2.5, height = 2.5)
+# all genes
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+load( file.path( rdadir, "DE.rda" ) )
+require("broman")
+require("RColorBrewer")
+xy = data.frame(x=dmat_unnormed$rna,y=dmat_unnormed$pro)
+plot( xy, col = "grey20" , pch = "", cex = .4, lwd = .4,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab ="")
+title( xlab = "log2 (human/chimp) RNA", 
+       ylab = "log2 (human/chimp) Protein", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+require(RColorBrewer)
+dcols <- densCols(xy, n = 50, 
+                  colramp=colorRampPalette(brewer.pal(11, "Spectral")))
+points(xy, col = dcols, pch = 16, cex = .3)
+abline(h = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(v = 0, lty = 1, col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "rnaproScatter_legend.pdf"), width=.5,height= 1.1)
+par( mfrow = c(1, 1), mar = c(0, .2, .2, .2), mgp = c(.5, 0, 0) )
+nbin <- 50
+col_dens <- grDevices:::.smoothScatterCalcDensity(xy, nbin=nbin)
+col_dens <- col_dens$fhat
+col_dens <- col_dens[col_dens>0]
+range(col_dens)
+
+col_legend <- data.frame(density=seq(min(col_dens), max(col_dens), len=10), 
+                   color=I(colorRampPalette(brewer.pal(11, "Spectral"))(10)) )
+plot(NA, xlim=c(0,8), ylim=c(1,12), type="n", ann=FALSE, axes=FALSE)
+rect(0, 1:10, 4, 2:11, border=NA, col=col_legend$col)
+text(5.3, (1:10)+0.5, adj = 0, ceiling(100*col_legend$density),
+     cex = .4)
+text(0, 11.7, adj = 0, "Cell count", cex = .4)
+dev.off()
+
+```
+
+
+
+Compute the correlation between Ribo fold change and RNA fold change, and also the correlationb between Ribo fold change and protein fold change (all between human and chimpanzee)
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path( codedir, "prepareDivergencePlots.R"))
+
+require(broman)
+crayon <- brocolors("crayons")
+require(RColorBrewer)
+
+## Ribo DE and RNA DE spearman's correlation
+cor_riborna <- cor(dmat_unnormed$rna, dmat_unnormed$ribo, 
+                   method = "spearman")
+
+## Ribo DE and protein DE spearman's correlation
+cor_rnapro <- cor(dmat_unnormed$rna, dmat_unnormed$pro, 
+                  method = "spearman")
+
+
+cor(dmat_unnormed$rna, dmat_unnormed$pro, 
+                   method = "spearman")
+
+cor_riborna
+cor_rnapro
+
+## Apply Fisher's z transformation to conver the Spearman's
+## correlations to z scores, and then compute a p-values
+## comparing these z scores
+fisherCorrTest(cor_riborna, cor_rnapro,
+               N1 = dim(dmat_unnormed)[1],
+               N2 = dim(dmat_unnormed)[1])
+
+
+
+
+## Define a set of genes that are DE in any of the three
+## molecular layers
+ii_all <- riboRes.Q$qval < .01 | rnaRes.Q$qval < .01 | massRes.Q$qval < .01
+  
+## Recompute difference between spearman's correlations
+## using a set of genes that are DE in any of the three 
+## molecular phenotypes
+dmat_subset <- dmat_unnormed[ii_all,]
+cor_riborna <- cor(dmat_subset$rna, dmat_subset$ribo, 
+                   method = "spearman")
+cor_rnapro <- cor(dmat_subset$rna, dmat_subset$pro, 
+                  method = "spearman")
+cor_riborna
+cor_rnapro
+
+fisherCorrTest(cor_riborna, cor_rnapro,
+               N1 = dim(dmat_subset)[1],
+               N2 = dim(dmat_subset)[1])
+
+
+
+```
+
+
+
+
+
+
+Fit simple linear model to describe the linear association between Ribo and RNA and also Ribo and protein. This was done because there was no significant difference between the correlation coefficients between Ribo-RNA and Ribo-Protein. 
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path( codedir, "prepareDivergencePlots.R"))
+
+require(broman)
+crayon <- brocolors("crayons")
+require(RColorBrewer)
+
+## Ribo and RNA
+fit_riborna <- lm(dmat_unnormed$rna ~ dmat_unnormed$ribo)
+
+## Ribo and Protein 
+fit_ribopro <- lm(dmat_unnormed$pro ~ dmat_unnormed$ribo)
+
+summary(fit_riborna)
+summary(fit_ribopro)
+
+fit_riborna
+fit_ribopro
+
+```
+
+
+
+
+
+Replication rates
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+load(file.path(rdadir,"TEnew.rda"))
+load(file.path(rdadir,"ribopro.rda"))
+
+
+par(mfrow=c(1,1))
+ngenes <- NROW(res.riborna)
+ref <- runif(ngenes,0,1)
+pval_riborna <- qqplot(y=-log10(res.riborna$int.pval),
+                  x = -log10(ref), axes=F, plot.it=F )
+pval_ribopro <- qqplot(y=-log10(res.ribopro$int.pval),
+                  x = -log10(ref), axes=F, plot.it=F )
+pval_ref <- qqplot(y = -log10(ref),
+          x = -log10(ref), axes = F, plot.it=F)
+require(broman)
+require(scales)
+crayon <- brocolors("crayon")
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","replication_density.pdf"),    
+          width = 2.5, height = 2.5)
+par(mfrow=c(1,1),mgp=c(.8, .3 , 0), mar = c(4.5, 1.5, 1.2, .2), lwd = .3)
+dens <- list(density( -log10(res.ribopro$int.pval) ),
+             density( -log10(res.riborna$int.pval) ) )
+names(dens) <- c("ribopro", "riborna")
+xlims <- range(sapply(dens, function(xx) xx$x) )
+ylims <- c(0, 1)
+plot( 0, pch = "", ylim = ylims, xlim = xlims,
+      main = "", xlab = "", ylab ="", axes = F )
+title( xlab = "-log10(p-value)", cex.lab = .6, line = .8)
+title( ylab = "Density", cex.lab = .6, line = .8)
+axis(1, tck = -.03, cex.axis = .4, lwd = .6)
+axis(2, tck = -.03, cex.axis = .4, lwd = .6)
+polygon(dens[[1]],col = alpha(crayon["Green"], .4), lwd = .5 )
+polygon( dens[[2]],col=alpha(crayon["Scarlet"], .4), lty = 1, lwd = .5 )
+
+
+par(mfrow=c(1,1),mgp=c(.8, .3 , 0), mar = c(2.5, 1.5, 1.2, .2), lwd = .3)
+q <- qqplot( -log10(res.riborna$int.pval), 
+        -log10(res.ribopro$int.pval),
+        ylim = c(0,11), xlim = c(0,11),
+      main = "", xlab = "", ylab ="", axes = F )
+title( xlab = "-log10(p-value) of translationl divergence", cex.lab = .6, line = .8)
+title( ylab = "-log10(p-value) of posttranslationl divergence", cex.lab = .6, line = .8)
+axis(1, tck = -.03, cex.axis = .4, lwd = .6)
+axis(2, tck = -.03, cex.axis = .4, lwd = .6)
+abline(0,1, col = "dodgerblue", lwd = 1.5)
+#idx <-  res.riborna$int.qval < .0015 | res.ribopro$int.qval < .0015
+idx <-  q$x > 3 | q$y > 3 
+points(q$x[idx], q$y[idx], pch = 16, col  = alpha(crayon["Mango Tango"],.6) )
+#text(2, 8, adj = 0, labels = paste(sum(idx), "genes"), cex = .6)
+dev.off()
+
+
+#sum(-log10(res.riborna$int.pval) > 3 |   -log10(res.ribopro$int.pval) > 3)
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","replication.pdf"),    
+          width = 1.9, height = 1.9)
+par(mfrow=c(1,1),mgp=c(.5, .2, 0), mar = c(1.8, 1.8, 1, .8) )
+plot(pval_ribopro, axes = F, pch = 20, col = crayon["Green"],
+      xlim = c(0, 4), ylim = c(0, 12), cex = .6, xlab ="", ylab = "", lwd = .7)
+points(pval_riborna,pch=20,col= crayon["Scarlet"], cex = .6)
+points(pval_ref, type = "l", col = crayon["Blue"], lwd = .8)
+title(xlab = "Expected -log10 p-value", cex.lab = .6, line = .8)
+title(ylab = "Observed -log10 p-value", cex.lab = .6, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .6)
+axis(2, tck = -.03, cex.axis = .5, lwd = .6)
+legend(-.2, 12, legend=c("Translation","Post-translation"),
+    col=c(crayon["Scarlet"],crayon["Green"]),
+    box.col="white", pch = 19, cex = .6, adj = 0)  
+dev.off()
+```
+
+
+
+Divergence effect size summary
+
+Translation effect size: among genes sig. Ribo/RNA
+
+Post-translation effect size: among genes sig. RNA/Protein
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+load(file.path(rdadir,"ribopro.rda"))
+load(file.path(rdadir,"rnapro.rda"))
+load(file.path(rdadir,"TEnew.rda"))
+source(file.path(codedir, "prepareDivergencePlots.r"))
+# xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,pro=dmat_unnormed$pro)
+# xy.riborna = data.frame(rna=dmat_unnormed$rna,ribo=dmat_unnormed$ribo)
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "DDeffectsize_sig.pdf"),
+    width = 2, height = 2)
+par(mfrow=c(1,1), mgp = c(.5, .2, 0), mar = c(1.8, 1.8, 1, .8) )
+xy.ribopro = data.frame(ribo = dmat.ribopro_norm$ribo, 
+                        pro = dmat.ribopro_norm$pro )
+xy.riborna = data.frame(rna = dmat.riborna_norm$rna,
+                        ribo = dmat.riborna_norm$ribo)
+
+plot_mat <- data.frame( riborna = abs(xy.riborna[, 2] - xy.riborna[, 1]), 
+                        ribopro = abs(xy.ribopro[, 2] - xy.ribopro[, 1] ) )
+idx_riborna <- -log10(res.riborna$int.qval) > 2
+idx_ribopro <- -log10(res.ribopro$int.qval) > 2
+plot_mat1 <- plot_mat[idx_riborna,]
+plot_mat2 <- plot_mat[idx_ribopro,]
+
+comboplot_mat <- rbind( cbind(plot_mat1[,1], rep(1, length(plot_mat1[,1] ) ) ),
+                        cbind(plot_mat2[,2], rep(2, length(plot_mat2[,2] ) ) ) )
+colnames(comboplot_mat) <- c("size", "type")
+
+require(broman)
+crayon <- brocolors("crayon")
+boxplot(size ~ type, data = comboplot_mat, axes = F, cex = .5,
+        col = c(crayon["Scarlet"], crayon["Jungle Green"]), lwd = .4,
+        outcol = c(crayon["Scarlet"], crayon["Jungle Green"]), outpch = 19, 
+        ylim = c(-.5, 10), varwidth = TRUE )
+title(ylab = "Human vs. chimp divergence effect size", cex.lab = .6, line = 1)
+
+
+fit <- wilcox.test(size ~ type, data = comboplot_mat)
+text(1.5, 10, labels =  "p = .06", cex = .6)
+ngenes <- c( paste(sum(idx_riborna), "genes"),
+              paste(sum(idx_ribopro), "genes" ) )
+axis(1, at=c(1,2),labels = ngenes, 
+     cex.axis = .6, line = .3, tck = 0, col  = "white")
+axis(1, at=c(1,2),labels=c("Translation","Post-translation"), 
+     cex.axis = .6, line = -.5, col = "white")
+axis(2, tck = -.03, cex.axis = .5, lwd = .6, at = c(0,2,4,6,8,10),
+     labels = c(0,2,4,6,8,10) )
+dev.off()
+
+
+
+
+crayon <- brocolors("crayon")
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "DDeffectsize_2fold.pdf"),
+    width = 2, height = 2)
+par(mfrow=c(1,1), mgp = c(.5, .2, 0), mar = c(1.8, 1.8, 1, .8) )
+xy.ribopro = data.frame(ribo = dmat.ribopro_norm$ribo, 
+                        pro = dmat.ribopro_norm$pro )
+xy.riborna = data.frame(rna = dmat.riborna_norm$rna,
+                        ribo = dmat.riborna_norm$ribo)
+
+plot_mat <- data.frame( riborna = abs(xy.riborna[, 2] - xy.riborna[, 1]), 
+                        ribopro = abs(xy.ribopro[, 2] - xy.ribopro[, 1] ) )
+idx_riborna <- abs(xy.riborna[, 2] - xy.riborna[, 1]) > 1
+idx_ribopro <- abs(xy.ribopro[, 2] - xy.ribopro[, 1]) > 1
+plot_mat1 <- plot_mat[idx_riborna,]
+plot_mat2 <- plot_mat[idx_ribopro,]
+
+comboplot_mat <- rbind( cbind(plot_mat1[,1], rep(1, length(plot_mat1[,1] ) ) ),
+                        cbind(plot_mat2[,2], rep(2, length(plot_mat2[,2] ) ) ) )
+colnames(comboplot_mat) <- c("size", "type")
+
+require(broman)
+boxplot(size ~ type, data = comboplot_mat, axes = F, cex = .5,
+        col = c(crayon["Scarlet"], crayon["Jungle Green"]), lwd = .4,
+        outcol = c(crayon["Scarlet"], crayon["Jungle Green"]), outpch = 19, 
+        ylim = c(-.5, 10), varwidth = TRUE )
+title(ylab = "Human vs. chimp divergence effect size", cex.lab = .6, line = 1)
+
+
+fit <- wilcox.test(size ~ type, data = comboplot_mat)
+text(1.5, 10, labels =  "p < .0005", cex = .6)
+ngenes <- c( paste(sum(idx_riborna), "genes"),
+              paste(sum(idx_ribopro), "genes" ) )
+axis(1, at=c(1,2),labels = ngenes, 
+     cex.axis = .6, line = -.1, tck = 0, col  = "white")
+axis(1, at=c(1,2),labels=c("Translation","Post-translation"), 
+     cex.axis = .6, line = -1.2, col = "white")
+axis(2, tck = -.03, cex.axis = .5, lwd = .6, at = c(0,2,4,6,8,10),
+     labels = c(0,2,4,6,8,10) )
+dev.off()
+
+
+```
+
+
+
+
+
+
+# Figure 3
+
+**Absolute values of Divergence effect sizes**: Compute absolute value of log2 RPKM fold change between human and chimp using normalized log2 relative RPKM.
+
+
+```{r}
+# RNA versus Protein
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path(codedir,"plotDivergenceScatter.r"))
+source(file.path(codedir,"prepareDivergencePlots.r"))
+ii_rnapro_gt = res.rnapro$int.qval < .01 & (abs(xy.rnapro$rna) > abs(xy.rnapro$pro))
+ii_rnapro_lt = res.rnapro$int.qval < .01 & (abs(xy.rnapro$rna) < abs(xy.rnapro$pro))
+ii_rnapro_null = res.rnapro$int.qval > .01 
+
+# par(mfrow=c(1,4), mar = c(2, 2, 1, 0), mgp = c(.9, .2, 0))
+# plot( 0, pch="", xlim = c(0,8), ylim = c(0,8), axes = F, xlab ="" )
+# points( x=rep(.5,3), y = c(2.3,4.3,6.3), pch = 24, cex = 3, lwd = 2,
+#         bg = rev(c("grey20", "grey60","white")), col = rep("black",3), 
+#         lty = rev(c(1,1,2)) )
+# text( x=rep(1.2,3), y = rev(c(2.3,4.3,6.3)), adj = 0, 
+#       labels = c("RNA Human-Chimp divergence",
+#                  "Ribo Human-Chimp divergence",
+#                  "Protein Human-Chimp divergence") )
+require(scales)
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","rnapro_density.pdf"),
+    width=1.5,height=1.5)
+par( mar = c(2, 2, 1, 0.5), mgp = c(.9, .3, 0) )
+dens = list(density( abs( dmat.rnapro_norm$rna[ii_rnapro_gt] ) ),
+            density( abs( dmat.ribopro_norm$ribo[ii_rnapro_gt] ) ),
+            density( abs( dmat.rnapro_norm$pro[ii_rnapro_gt] ) ) )
+plotDivergenceDensity_v2( dens, main = "RNA > Protein",
+                       xlims_subset = c(-.5,3), 
+                       ylims_subset = c(0,3) )
+
+
+dens = list(density( abs( dmat.rnapro_norm$rna[ii_rnapro_lt] ) ),
+            density( abs( dmat.ribopro_norm$ribo[ii_rnapro_lt] ) ),
+            density( abs( dmat.rnapro_norm$pro[ii_rnapro_lt] ) ) )
+plotDivergenceDensity_v2( dens, main = "RNA < Protein",
+                       xlims_subset = c(-.5,3), 
+                       ylims_subset = c(0,3) )
+
+dens = list(density( abs( dmat.rnapro_norm$rna[ii_rnapro_null] ) ),
+            density( abs( dmat.ribopro_norm$ribo[ii_rnapro_null] ) ),
+            density( abs( dmat.rnapro_norm$pro[ii_rnapro_null] ) ) )
+plotDivergenceDensity_v2( dens, main = "RNA ~ Protein",
+                       xlims_subset = c(-.5,3), 
+                       ylims_subset = c(0,3) )
+dev.off()
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "rnapro_density_legend.pdf"), width=1.6,height=.3)
+par(mar=c(0,0,0,0))
+plot(.1, 1.1, xlim=c(0,2.8),ylim=c(0,2.2),axes=F,
+     pch = 17, col =brocolors("crayons")["Scarlet"],
+     cex = 1.5, lwd = 2)
+text(.3, 1.1, "mRNA", cex = .6, adj = 0)
+
+points(1.1, 1.1, col = brocolors("crayons")["Pine Green"], pch = 17,
+       cex = 1.5, lwd = 2 )
+text(1.3, 1.1, "Protein",cex = .6, adj = 0)
+points(2.1, 1.1, col = "dodgerblue", 
+       bg = brocolors("crayons")["Laser Lemon"], pch = 24,
+       cex = 1.5, lwd = 1 )
+text(2.3, 1.1, "Ribo", cex = .6, adj = 0)
+dev.off()
+
+```
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "prepareDivergencePlots.R") )
+source(file.path( codedir, "plotDivergenceScatter.r") )
+xy.rnapro = data.frame(rna=dmat_unnormed$rna,
+                       pro=dmat_unnormed$pro)
+xy.riborna = data.frame(rna=dmat_unnormed$rna,
+                        ribo=dmat_unnormed$ribo)
+xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
+                        pro=dmat_unnormed$pro)
+
+ii_riboGTrna = res.riborna$int.qval<.01 & (abs(xy.riborna$ribo) > abs(xy.riborna$rna))
+ii_rnaGTribo = res.riborna$int.qval<.01 & (abs(xy.riborna$ribo) < abs(xy.riborna$rna))
+ii_rnaGTpro = res.rnapro$int.qval<.01 & (abs(xy.rnapro$rna) > abs(xy.rnapro$pro))
+ii_proGTrna = res.rnapro$int.qval<.01 & (abs(xy.rnapro$pro) > abs(xy.rnapro$rna))
+ii_proNULLrna = (!(ii_rnaGTpro|ii_proGTrna))
+
+
+datalist <- list(xy.riborna, xy.rnapro, xy.ribopro)
+xlabs <- c("mRNA", "mRNA", "\n Ribosome occupancy")
+ylabs <- c("\n Ribosome occupancy", "Protein","Protein")
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","rnaproDD1.pdf"),
+    width = 1.6, height = 1.6)
+for (i in 1:length(datalist)) {
+plotDivergenceScatter(datalist[[i]], 
+                      ind_points1 = ii_proGTrna,
+                      ind_points2 = ii_rnaGTpro,
+                      xlab = paste("log2 (human/chimp)", xlabs[i]), 
+                      ylab = paste("log2 (human/chimp)", ylabs[i]), 
+                      col_bkpoints = brocolors("crayons")["Manatee"],
+                      lwd_bkpoints = .1,
+                      pch_bkpoints = "",
+                      col_points1 = brocolors("crayons")["Scarlet"],
+                      col_points2 = brocolors("crayons")["Violet Blue"],
+                      col_diag = "grey", 
+                      cex_bkpoints = .4,
+                      cex_points1 = .3, cex_points2 = .3,
+                      pch_points1 = 16, pch_points2 = "",
+                      col_hline = brocolors("crayons")["Shamrock"], 
+                      col_vline = brocolors("crayons")["Shamrock"], 
+                      lwd_hline = .3, lwd_vline = .3,
+                      cex.axis = .4, cex.lab = .6,
+                      xlim = c(-5, 8), ylim = c(-5, 8) )
+}
+dev.off()
+
+
+
+datalist <- list(xy.riborna, xy.rnapro, xy.ribopro)
+xlabs <- c("mRNA", "mRNA", "\n Ribosome occupancy")
+ylabs <- c("\n Ribosome occupancy", "Protein","Protein")
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","rnaproDD2.pdf"),
+    width = 1.6, height = 1.6)
+for (i in 1:length(datalist)) {
+plotDivergenceScatter(datalist[[i]], 
+                      ind_points1 = ii_proGTrna,
+                      ind_points2 = ii_rnaGTpro,
+                      xlab = paste("log2 (human/chimp)", xlabs[i]), 
+                      ylab = paste("log2 (human/chimp)", ylabs[i]), 
+                      col_bkpoints = brocolors("crayons")["Manatee"],
+                      lwd_bkpoints = .1,
+                      pch_bkpoints = "",
+                      col_points1 = brocolors("crayons")["Scarlet"],
+                      col_points2 = brocolors("crayons")["Violet Blue"],
+                      col_diag = "grey", 
+                      cex_bkpoints = .3,
+                      cex_points1 = .3, cex_points2 = .3,
+                      pch_points1 = "", pch_points2 = 16,
+                      col_hline = brocolors("crayons")["Shamrock"], 
+                      col_vline = brocolors("crayons")["Shamrock"], 
+                      lwd_hline = .3, lwd_vline = .3,
+                      cex.axis = .4, cex.lab = .6,
+                      xlim = c(-5, 8), ylim = c(-5, 8) )
+}
+dev.off()
+
+
+
+
+datalist <- list(xy.riborna, xy.rnapro, xy.ribopro)
+xlabs <- c("mRNA", "mRNA", "\n Ribosome occupancy")
+ylabs <- c("\n Ribosome occupancy", "Protein","Protein")
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "rnaproDD3.pdf"),
+    width = 1.6, height = 1.6)
+for (i in 1:length(datalist)) {
+plotDivergenceScatter(datalist[[i]][ii_proNULLrna,], 
+                      ind_points1 = ii_proGTrna,
+                      ind_points2 = ii_rnaGTpro,
+                      xlab = paste("log2 (human/chimp)", xlabs[i]), 
+                      ylab = paste("log2 (human/chimp)", ylabs[i]), 
+                      col_bkpoints = brocolors("crayons")["Gray"],
+                      lwd_bkpoints = .1,
+                      pch_bkpoints = 16,
+                      col_points1 = brocolors("crayons")["Outrageous Orange"],
+                      col_points2 = brocolors("crayons")["Fern"],
+                      col_diag = "grey", 
+                      cex_bkpoints = .5,
+                      cex_points1 = .5, cex_points2 = .6,
+                      pch_points1 = "", pch_points2 = "",
+                      col_hline = brocolors("crayons")["Shamrock"], 
+                      col_vline = brocolors("crayons")["Shamrock"], 
+                      lwd_hline = .3, lwd_vline = .3,
+                      cex.axis = .4, cex.lab = .6,
+                      xlim = c(-5, 8), ylim = c(-5, 8) )
+}
+dev.off()
+
+
+datalist <- list(xy.riborna, xy.rnapro, xy.ribopro)
+xlabs <- c("mRNA", "mRNA", "\n Ribosome occupancy")
+ylabs <- c("\n Ribosome occupancy", "Protein","Protein")
+
+ii_rnaGTpro = res.rnapro$int.qval<.01 & (abs(xy.rnapro$rna) > abs(xy.rnapro$pro))
+ii_proGTrna = res.rnapro$int.qval<.01 & (abs(xy.rnapro$pro) > abs(xy.rnapro$rna))
+ii_proNULLrna = (!(ii_rnaGTpro|ii_proGTrna))
+ii_ribo_rna = which(res.rnapro$ENSGID[ii_proNULLrna] %in% res.rnapro$ENSGID[res.riborna$int.qval<.01]) 
+ii_ribo_pro = which(res.rnapro$ENSGID[ii_proNULLrna] %in% res.rnapro$ENSGID[res.ribopro$int.qval<.01]) 
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "rnaproDD3_sig_genes_riborna_ribopro.pdf"),
+    width = 1.6, height = 1.6)
+for (i in 1:length(datalist)) {
+plotDivergenceScatter(datalist[[i]][ii_proNULLrna,], 
+                      ind_points1 = ii_ribo_rna,
+                      ind_points2 = ii_ribo_pro,
+                      xlab = paste("log2 (human/chimp)", xlabs[i]), 
+                      ylab = paste("log2 (human/chimp)", ylabs[i]), 
+                      col_bkpoints = brocolors("crayons")["Gray"],
+#                      col_bkpoints = "white",
+                      lwd_bkpoints = .1,
+                      pch_bkpoints = 16,
+                      col_points1 = brocolors("crayons")["Outrageous Orange"],
+                      col_points2 = brocolors("crayons")["Fern"],
+                      col_diag = "grey", 
+                      cex_bkpoints = .5,
+                      cex_points1 = .5, cex_points2 = .6,
+                      pch_points1 = 16, pch_points2 = 16,
+                      col_hline = brocolors("crayons")["Shamrock"], 
+                      col_vline = brocolors("crayons")["Shamrock"], 
+                      lwd_hline = .3, lwd_vline = .3,
+                      cex.axis = .4, cex.lab = .6,
+                      xlim = c(-5, 8), ylim = c(-5, 8) )
+}
+dev.off()
+
+```
+
+
+## Among the genes that are not differentially divergent (statistical significance) across transcript and protein levels, check the number of genes that are differentially divergent across ribosome occupancy - transcript levels and the number of genes that are differentially divergent across ribosome occupancy - protein levels 
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "prepareDivergencePlots.R") )
+
+## Index genes that are differentially divergent across
+## transcript and protein levels
+ii_rnaGTpro = res.rnapro$int.qval<.01 & (abs(xy.rnapro$rna) > abs(xy.rnapro$pro))
+ii_proGTrna = res.rnapro$int.qval<.01 & (abs(xy.rnapro$pro) > abs(xy.rnapro$rna))
+
+## Index genes that are not differentially divergent
+## across transcript and protein levels and that are 
+## differentially divergent across ribosome and transcript 
+## levels
+ii_proNULLrna <- (!(ii_rnaGTpro|ii_proGTrna))
+ii_ribo_rna <- res.riborna$int.qval<.01 
+table(ii_proNULLrna,ii_ribo_rna)
+
+## Index genes that are not differentially divergent
+## across transcript and protein levels and that are
+## differentially divergent across ribosome and protein 
+ii_proNULLrna <- (!(ii_rnaGTpro|ii_proGTrna))
+ii_ribo_pro <- res.ribopro$int.qval<.01 
+table(ii_proNULLrna,ii_ribo_pro)
+
+
+
+```
+
+
+
+
+
+
+# Figure 4
+
+
+
+Scatter plots
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+#source(file.path(codedir,"plotDivergenceScatter.r"))
+
+source(file.path( codedir, "prepareDivergencePlots.R") )
+source(file.path( codedir, "plotDivergenceScatter.r") )
+xy.ribopro <- data.frame(ribo=dmat.ribopro_norm$ribo,pro=dmat.ribopro_norm$pro)
+xy.rnapro <- data.frame(rna=dmat.rnapro_norm$rna,pro=dmat.rnapro_norm$pro)
+xy.riborna <- data.frame(rna=dmat.riborna_norm$rna,ribo=dmat.riborna_norm$ribo)
+# xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
+#                         pro=dmat_unnormed$pro)
+# xy.rnapro = data.frame(rna=dmat_unnormed$rna,
+#                        pro=dmat_unnormed$pro)
+# xy.riborna = data.frame(rna=dmat_unnormed$rna,
+#                         ribo=dmat_unnormed$ribo)
+ii_riboGTrna = res.riborna$int.qval<.01 & (abs(xy.riborna$ribo) > abs(xy.riborna$rna))
+ii_rnaGTribo = res.riborna$int.qval<.01 & (abs(xy.riborna$ribo) < abs(xy.riborna$rna))
+ii_rnaGTpro = res.rnapro$int.qval<.01 & (abs(xy.rnapro$rna) > abs(xy.rnapro$pro))
+ii_proGTrna = res.rnapro$int.qval<.01 & (abs(xy.rnapro$pro) > abs(xy.rnapro$rna))
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","ribornaDD.pdf"),
+    width=2,height=2)
+plotDivergenceScatter(xy.riborna, 
+                      ind_points1 = ii_riboGTrna,
+                      ind_points2 = ii_rnaGTribo,
+                      xlab = "log2 (human/chimp) mRNA", 
+                      ylab = "log2 (human/chimmp) \n Ribosome occupancy", 
+                      col_bkpoints = brocolors("crayons")["Manatee"],
+                      lwd_bkpoints = .1,
+                      pch_bkpoints = "",
+                      col_points1 = brocolors("crayons")["Scarlet"],
+                      col_points2 = brocolors("crayons")["Violet Blue"],
+                      col_diag = "grey", 
+                      cex_bkpoints = .4,
+                      cex_points1 = .6,
+                      cex_points2 = .5,
+                      pch_points1 = 18,
+                      pch_points2 = 20,
+                      col_hline = brocolors("crayons")["Shamrock"], 
+                      col_vline = brocolors("crayons")["Shamrock"], 
+                      lwd_hline = .3, cex.lab = .7,
+                      lwd_vline = .3, cex.axis = .5,
+                      xlim = c(-5, 8), ylim = c(-5, 8) )
+
+plotDivergenceScatter(xy.rnapro, 
+                      ind_points1 = ii_riboGTrna,
+                      ind_points2 = ii_rnaGTribo,
+                      xlab = "log2 (human/chimp) mRNA", 
+                      ylab = "log2 (human/chimp) Protein", 
+                      col_bkpoints = brocolors("crayons")["Manatee"],
+                      lwd_bkpoints = .1,
+                      pch_bkpoints = "",
+                      col_points1 = alpha(brocolors("crayons")["Scarlet"],1),
+                      col_points2 = alpha(brocolors("crayons")["Violet Blue"],1),
+                      col_diag = "grey", 
+                      cex_bkpoints = .4,
+                      cex_points1 = .6,
+                      cex_points2 = .5,
+                      pch_points1 = 18,
+                      pch_points2 = 20,
+                      col_hline = brocolors("crayons")["Shamrock"], 
+                      col_vline = brocolors("crayons")["Shamrock"], 
+                      lwd_hline = .3, cex.lab = .7,
+                      lwd_vline = .3, cex.axis = .5,
+                      xlim = c(-5, 8), ylim = c(-5, 8) )
+dev.off()
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "ribornaDD_legend.pdf"), width=2.5,height=.5)
+par(mar=c(0,0,0,0))
+plot(.1, 1, xlim=c(0,2.5),ylim=c(0,2),axes=F,
+     pch=18, col =brocolors("crayons")["Scarlet"],
+     cex = 1.5)
+points(.1, .5, col = brocolors("crayons")["Violet Blue"], pch = 20, cex = 1.5 )
+text(.2,1,"Translation-specific ehhancement at FDR .01",cex = .6, adj = 0)
+text(.2,.5,"Translational attenuation at FDR .01",cex = .6, adj = 0)
+dev.off()
+
+```
+
+
+
+Density plots
+
+```{r}
+dir <- "~/Dropbox/riboRNAShared"
+rdadir <- file.path(dir,"rdas")
+codedir <- file.path(dir,"codes")
+source(file.path(codedir,"plotDivergenceScatter.r"))
+source(file.path(codedir,"prepareDivergencePlots.r"))
+xy.ribopro <- data.frame(ribo=dmat.ribopro_norm$ribo,pro=dmat.ribopro_norm$pro)
+xy.rnapro <- data.frame(rna=dmat.rnapro_norm$rna,pro=dmat.rnapro_norm$pro)
+xy.riborna <- data.frame(rna=dmat.riborna_norm$rna,ribo=dmat.riborna_norm$ribo)
+# RNA versus Ribo
+ii_riborna_gt <- res.riborna$int.qval < .01 & (abs(xy.riborna$rna) > abs(xy.riborna$ribo))
+ii_riborna_lt <- res.riborna$int.qval < .01 & (abs(xy.riborna$rna) < abs(xy.riborna$ribo))
+ii_riborna_null <- res.riborna$int.qval > .01 
+
+
+require(scales)
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "riborna_density.pdf"),
+    width = 1.9, height = 1.6 )
+par( mar = c(1.6, 1.5, 1, 1.4), mgp = c(.7, .1, 0) )
+
+dens = list(density( abs( dmat.rnapro_norm$rna[ii_riborna_lt] ) ),
+            density( abs( dmat.ribopro_norm$ribo[ii_riborna_lt] ) ),
+            density( abs( dmat.rnapro_norm$pro[ii_riborna_lt] ) ) )
+plotDivergenceDensity_v2( dens, main = "Translation-specific \n enhancement",
+                       xlims_subset = c(-.5, 3), 
+                       ylims_subset = c(0, 3) , main.adj = .5, main.line =-.2)
+dens = list(density( abs( dmat.rnapro_norm$rna[ii_riborna_gt] ) ),
+            density( abs( dmat.ribopro_norm$ribo[ii_riborna_gt] ) ),
+            density( abs( dmat.rnapro_norm$pro[ii_riborna_gt] ) ) )
+plotDivergenceDensity_v2( dens, main = "Translational attenuation",
+                       xlims_subset = c(-.5,3), 
+                       ylims_subset = c(0,3), main.adj = .5, main.line = .3 )
+dev.off()
+
+```
+
+
+
+
+
+
+
+Boxplots
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+#load(file.path(rdadir,"ribopro.rda"))
+load(file.path(rdadir,"enrichdata.rda"))
+
+source(file.path( codedir, "plotDivergenceScatter.R") )
+source(file.path( codedir, "prepareDivergencePlots.R") )
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "figure4Boxplots_legend.pdf"),
+    width = 4, height = .4)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+par(mar = rep(0,4))
+plot(0, pch = "", xlab ="", ylab = "", xlim = c(0,6), ylim = c(0,1.5) )
+#     axes = T)
+rect(0,.6, 1, 1, col = cols[1], lwd = .5)
+rect(4, .6, 5, 1, col = cols[2], lwd = .5)
+text(5.1,.8, adj = 0, labels = "Background", cex = .6)
+text(1.1,.8, adj = 0, labels = "Translational divegence at FDR .01", cex = .6)
+dev.off()
+
+
+dd_gc.content <- genelist.stats[genelist.stats$dd.riborna == TRUE, ]$gc.content
+nondd_gc.content <- genelist.stats[genelist.stats$dd.riborna == FALSE, ]$gc.content
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_gcontent.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(dd_gc.content, nondd_gc.content)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+plotBoxes2(dd_gc.content, nondd_gc.content,
+          main = "GC content \n", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("DD","non-DD"), ylim = c(0.3, .8) )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", 10^(-12), sep=""), side = 3, cex = .5, line = -.1 )
+dev.off()
+
+
+
+dd_pi <- genelist.I[genelist.I$dd.riborna == TRUE, ]$total.counts
+nondd_pi <- genelist.I[genelist.I$dd.riborna == FALSE, ]$total.counts
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_proteininteraction.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(dd_pi, nondd_pi)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+plotBoxes2(dd_pi, nondd_pi,
+          main = "No. of protein-\n protein interaction", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("DD","non-DD"), ylim = c(0, 160) )
+mtext( paste("p val. < ",.0001, sep=""), side = 3, cex = .5, line = -.2 )
+dev.off()
+
+
+
+
+dd_utr3.len <- genelist.stats[genelist.stats$dd.riborna == TRUE, ]$utr3.len
+nondd_utr3.len <- genelist.stats[genelist.stats$dd.riborna == FALSE, ]$utr3.len
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_3utrlength.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(dd_utr3.len, nondd_utr3.len)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+plotBoxes2(dd_utr3.len, nondd_utr3.len, 
+          main = "3'UTR length \n", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("DD","non-DD"), ylim = c(0, 5000) )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .0002, sep=""), side = 3, cex = .5, line = -.1 )
+dev.off()
+
+
+
+
+dd_mir_nsites <- genelist.mir[genelist.mir$dd.riborna == TRUE, ]$n.sites
+nondd_mir_nsites <- genelist.mir[genelist.mir$dd.riborna == FALSE, ]$n.sites
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_mirna.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(dd_mir_nsites, nondd_mir_nsites)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+plotBoxes2(dd_mir_nsites, nondd_mir_nsites, 
+          main = "No. of miRNA site \n", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("DD","non-DD"), ylim = c(0, 230) )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .005, sep=""), side = 3, cex = .5, line = -.1 )
+dev.off()
+
+
+dd_utr3 <- genelist.PhastCons[genelist.PhastCons$dd.riborna == TRUE, ]$UTR3
+nondd_utr3 <- genelist.PhastCons[genelist.PhastCons$dd.riborna == FALSE, ]$UTR3
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_3primephast.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(dd_utr3, nondd_utr3)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+plotBoxes2(dd_utr3, nondd_utr3,
+          main = "3' PhastCons \n", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("DD","non-DD"), ylim = c(0, 1) )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .0005, sep=""), side = 3, cex = .5, line = -.1 )
+dev.off()
+
+
+
+dd_utr5 <- genelist.PhastCons[genelist.PhastCons$dd.riborna == TRUE, ]$UTR5
+nondd_utr5 <- genelist.PhastCons[genelist.PhastCons$dd.riborna == FALSE, ]$UTR5
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_5primephast.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(dd_utr5, nondd_utr5)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Carnation Pink"], "grey90")
+plotBoxes2(dd_utr5, nondd_utr5,
+          main = "5' PhastCons \n", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("DD","non-DD"), ylim = c(0, 1) )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .005, sep=""), side = 3, cex = .5, line = -.1 )
+dev.off()
+```
+
+
+
+
+GO analysis (TBD)
+
+
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "plotDivergenceScatter.R") )
+load(file.path(rdadir, "go_ribornaDD.rda"))
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","GO_riborna.pdf"),
+    width=15,height=20)
+cutoff <- .01
+golist_bp <- list(go_enhanced = summary(go_enhanced$BP, pvalue = 1), 
+                go_attenuated = summary(go_attenuated$BP, pvalue = 1),
+                go_null = summary(go_null$BP, pvalue = 1) )
+merge_gos <- merge(golist_bp[[1]][ ,c(1,2,7)],
+                           golist_bp[[2]][ ,c(1,2,7)], 
+                           all = TRUE, by = "GOBPID")
+goset_term <- merge_gos$Term.x
+goset_term[is.na(goset_term)] <- merge_gos$Term.y[is.na(goset_term)]
+heatmap_temp <- data.frame(GOBPID = merge_gos$GOBPID,
+                                Term = goset_term,
+                                enhanced = merge_gos$Pvalue.x,
+                                attenuated = merge_gos$Pvalue.y)
+merge_gos <- merge(heatmap_temp, golist_bp[[3]][ ,c(1,2,7)],
+                   all = TRUE, by = "GOBPID")
+merge_gos$Term <- as.character(merge_gos$Term.x)
+merge_gos$Term[is.na(merge_gos$Term.x)] <- merge_gos$Term.y[is.na(merge_gos$Term.x)]
+heatmap_temp <- data.frame(GOBPID = merge_gos$GOBPID,
+                           Term = merge_gos$Term,
+                           enhanced = merge_gos$enhanced,
+                           attenuated = merge_gos$attenuated,
+                           null = merge_gos$Pvalue)
+heatmap_allgos_bp <- heatmap_temp
+heatmap_allgos_bp[is.na(heatmap_allgos_bp)] <- 1 - 10^(-6)
+not_sig <- heatmap_allgos_bp[ , -c(1,2)] > cutoff
+sig_gos <- which( rowSums(not_sig) != length(golist_bp))
+heatmap_allgos_bp <- heatmap_allgos_bp[sig_gos,]
+plotHeatmap(heatmap_allgos_bp,  mar =  c(8, 1, 0, 20),
+                oma = c(2, 5, 0, 40), keysize = 1,
+                labCol = c("Enhanced", "Attenuated","Null") )
+
+
+golist_cc <- list(go_enhanced = summary(go_enhanced$CC, pvalue = 1), 
+                go_attenuated = summary(go_attenuated$CC, pvalue = 1),
+                go_null = summary(go_null$CC, pvalue = 1) )
+merge_gos <- merge(golist_cc[[1]][ ,c(1,2,7)],
+                           golist_cc[[2]][ ,c(1,2,7)], 
+                           all = TRUE, by = "GOCCID")
+goset_term <- merge_gos$Term.x
+goset_term[is.na(goset_term)] <- merge_gos$Term.y[is.na(goset_term)]
+heatmap_temp <- data.frame(GOCCID = merge_gos$GOCCID,
+                                Term = goset_term,
+                                enhanced = merge_gos$Pvalue.x,
+                                attenuated = merge_gos$Pvalue.y)
+merge_gos <- merge(heatmap_temp, golist_cc[[3]][ ,c(1,2,7)],
+                   all = TRUE, by = "GOCCID")
+merge_gos$Term <- as.character(merge_gos$Term.x)
+merge_gos$Term[is.na(merge_gos$Term.x)] <- merge_gos$Term.y[is.na(merge_gos$Term.x)]
+heatmap_temp <- data.frame(GOCCID = merge_gos$GOCCID,
+                           Term = merge_gos$Term,
+                           enhanced = merge_gos$enhanced,
+                           attenuated = merge_gos$attenuated,
+                           null = merge_gos$Pvalue)
+heatmap_allgos_cc <- heatmap_temp
+heatmap_allgos_cc[is.na(heatmap_allgos_cc)] <- 1 - 10^(-6)
+not_sig <- heatmap_allgos_cc[ , -c(1,2)] > cutoff
+sig_gos <- which( rowSums(not_sig) != length(golist_cc) )
+heatmap_allgos_cc <- heatmap_allgos_cc[sig_gos,]
+plotHeatmap(heatmap_allgos_cc,  mar =  c(8, 1, 0, 20),
+                oma = c(2, 5, 0, 40), keysize = 1,
+                labCol = c("Enhanced", "Attenuated","Null") )
+
+
+golist_mf <- list(go_enhanced = summary(go_enhanced$MF, pvalue = 1), 
+                go_attenuated = summary(go_attenuated$MF, pvalue = 1),
+                go_null = summary(go_null$MF, pvalue = 1) )
+merge_gos <- merge(golist_mf[[1]][ ,c(1,2,7)],
+                           golist_mf[[2]][ ,c(1,2,7)], 
+                           all = TRUE, by = "GOMFID")
+goset_term <- merge_gos$Term.x
+goset_term[is.na(goset_term)] <- merge_gos$Term.y[is.na(goset_term)]
+heatmap_temp <- data.frame(GOMFID = merge_gos$GOMFID,
+                                Term = goset_term,
+                                enhanced = merge_gos$Pvalue.x,
+                                attenuated = merge_gos$Pvalue.y)
+merge_gos <- merge(heatmap_temp, golist_mf[[3]][ ,c(1,2,7)],
+                   all = TRUE, by = "GOMFID")
+merge_gos$Term <- as.character(merge_gos$Term.x)
+merge_gos$Term[is.na(merge_gos$Term.x)] <- merge_gos$Term.y[is.na(merge_gos$Term.x)]
+heatmap_temp <- data.frame(GOMFID = merge_gos$GOMFID,
+                           Term = merge_gos$Term,
+                           enhanced = merge_gos$enhanced,
+                           attenuated = merge_gos$attenuated,
+                           null = merge_gos$Pvalue)
+heatmap_allgos_mf <- heatmap_temp
+heatmap_allgos_mf[is.na(heatmap_allgos_mf)] <- 1 - 10^(-6)
+not_sig <- heatmap_allgos_mf[ , -c(1,2)] > .01
+sig_gos <- which( rowSums(not_sig) != length(golist_mf) )
+heatmap_allgos_mf <- heatmap_allgos_mf[sig_gos,]
+plotHeatmap(heatmap_allgos_mf,  mar =  c(8, 1, 0, 20),
+                oma = c(2, 5, 0, 40), keysize = 1,
+                labCol = c("Enhanced", "Attenuated","Null") )
+dev.off()
+
+
+```
+
+
+
+# Figure 5
+
+Scatter plot
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path(codedir,"prepareDivergencePlots.R"))
+
+xy.ribopro = data.frame(ribo=dmat.ribopro_norm$ribo,pro=dmat.ribopro_norm$pro)
+xy.rnapro = data.frame(rna=dmat.rnapro_norm$rna,pro=dmat.rnapro_norm$pro)
+xy.riborna = data.frame(rna=dmat.riborna_norm$rna,ribo=dmat.riborna_norm$ribo)
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","buffered.pdf"),
+    width = 2.5,height = 2.5)
+par( mfrow = c(1, 1), mar = c(2.5, 2, 1.8, 0), mgp = c(.5, .3, 0) )
+require(broman)
+crayon <- brocolors("crayon")
+xy = data.frame( x = xy.ribopro$pro, y = xy.ribopro$ribo )
+ii1 = res.ribopro$int.qval < .01 & (abs(xy.ribopro$ribo) > abs(xy.ribopro$pro))
+ii2 = res.ribopro$int.qval < .01 & (abs(xy.ribopro$ribo) < abs(xy.ribopro$pro))
+require(RColorBrewer)
+plot( xy, col = "grey30", pch ="", 
+     cex = .4, lwd = .3,
+     axes = F, ylim = c(-6, 10), xlim = c(-6, 10), xlab = "", ylab = "" )
+title( ylab = "log2 (human/chimp) Ribosome occupancy", 
+       xlab = "log2 (human/chimp) Protein", cex.lab = .7, line = 1)
+axis(1, tck = -.03, cex.axis = .5, lwd = .4)
+axis(2, tck = -.03, cex.axis = .5, lwd = .4)
+points(xy[ii2, ], pch = 16, 
+       col = brocolors("crayons")["Jungle Green"],
+       cex = .4 )
+points(xy[ii1, ], pch = 16, 
+       col = brocolors("crayons")["Burnt Orange"],
+       cex = .4 )
+abline(h = 0, v = 0, lty = 1, 
+       col = brocolors("crayons")["Shamrock"], lwd = .3)
+abline(a = 0, b = 1, lty = 1, col = "grey", lwd = .5)
+dev.off()
+
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "buffered_legend.pdf"), width=2.5,height=.5)
+par(mar=c(0,0,0,0))
+plot(.1, 1, xlim=c(0,2.5),ylim=c(0,2),axes=F,
+     pch=16, col =brocolors("crayons")["Burnt Orange"],
+     cex = 1.1)
+points(.1, .5, col = brocolors("crayons")["Jungle Green"], 
+       pch = 16, cex = 1.1)
+text(.2,1,"Buffered genes at FDR .01",cex = .6, adj = 0)
+text(.2,.5,"Enhanced genes at FDR .01",cex = .6, adj = 0)
+dev.off()
+
+```
+
+
+
+
+GO analysis for Ribo/Protein layer
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "prepareDivergencePlots.R") )
+load("/Users/joycehsiao/Dropbox/manuscript/genelist/genelist.rda")
+
+ii_enhanced <- mat.ribopro$proGTribo == TRUE
+ii_buffered <- mat.ribopro$riboGTpro == TRUE
+
+
+source(file.path(codedir,"GOtest.R"))
+load("/Users/joycehsiao/Dropbox/manuscript/genelist/genelist.rda")
+go_enhanced <- GOtest(my_ensembl_gene_universe = mat.DD$ENSGID,
+              my_ensembl_gene_test = mat.DD$ENSGID[ii_enhanced],
+              pval_cutoff = 1, ontology=c("BP","CC","MF"),
+              conditional.method = FALSE)
+go_buffered <- GOtest(my_ensembl_gene_universe = mat.DD$ENSGID,
+              my_ensembl_gene_test = mat.DD$ENSGID[ii_buffered],
+              pval_cutoff = 1,ontology=c("BP","CC","MF"),
+              conditional.method = FALSE)
+
+go_enhanced_cond <- GOtest(my_ensembl_gene_universe = mat.DD$ENSGID,
+              my_ensembl_gene_test = mat.DD$ENSGID[ii_enhanced],
+              pval_cutoff = 1, ontology=c("BP","CC","MF"),
+              conditional.method = TRUE)
+go_buffered_cond <- GOtest(my_ensembl_gene_universe = mat.DD$ENSGID,
+              my_ensembl_gene_test = mat.DD$ENSGID[ii_buffered],
+              pval_cutoff = 1,ontology=c("BP","CC","MF"),
+              conditional.method = TRUE)
+
+save(go_enhanced, go_buffered, go_enhanced_cond, go_buffered_cond,
+     file = file.path(rdadir, "go_riboproDD.rda") )
+```
+
+
+
+
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "plotDivergenceScatter.R") )
+load(file.path(rdadir, "go_riboproDD.rda"))
+
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "GO_ribopro.pdf"),
+    width=8,height=10)
+golist_cc <- list(go_enhanced = summary(go_enhanced$GO$CC, pvalue = 1), 
+                go_buffered = summary(go_buffered$GO$CC, pvalue = 1)  )
+merge_gos <- merge(golist_cc[[1]][ ,c(1,2,7)],
+                           golist_cc[[2]][ ,c(1,2,7)], 
+                           all = TRUE, by = "GOCCID")
+goset_term <- merge_gos$Term.x
+goset_term[is.na(goset_term)] <- merge_gos$Term.y[is.na(goset_term)]
+heatmap_allgos_cc <- data.frame(GOCCID = merge_gos$GOCCID,
+                                Term = goset_term,
+                                enhanced = merge_gos$Pvalue.x,
+                                buffered = merge_gos$Pvalue.y)
+heatmap_allgos_cc[is.na(heatmap_allgos_cc)] <- 1 - 10^(-6)
+not_sig <- heatmap_allgos_cc[ ,c(3,4)] > .01
+sig_gos <- which( rowSums(not_sig) != 2)
+heatmap_allgos_cc <- heatmap_allgos_cc[sig_gos,]
+plotHeatmap(heatmap_allgos_cc,  mar =  c(1, 2, 0, 6),
+                oma = c(0, .5, 0, 14), cexRow = 1, cexCol = 1,
+                labCol = c("Enhanced", "Buffered"),
+                breaks = seq(0, 6, .5), key = TRUE, 
+            dendrogram = "none" )
+dev.off()
+
+
+
+
+
+
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "GO_ribopro_CConly_cond.pdf"),
+    width = 8*.3, height=10*.3)
+golist_cc <- list(go_enhanced_cond = summary(go_enhanced_cond$GO$CC, pvalue = 1), 
+                go_buffered_cond = summary(go_buffered_cond$GO$CC, pvalue = 1)  )
+merge_gos <- merge(golist_cc[[1]][ ,c(1,2,7)],
+                           golist_cc[[2]][ ,c(1,2,7)], 
+                           all = TRUE, by = "GOCCID")
+goset_term <- merge_gos$Term.x
+goset_term[is.na(goset_term)] <- merge_gos$Term.y[is.na(goset_term)]
+heatmap_allgos_cc <- data.frame(GOCCID = merge_gos$GOCCID,
+                                Term = goset_term,
+                                enhanced = merge_gos$Pvalue.x,
+                                buffered = merge_gos$Pvalue.y)
+heatmap_allgos_cc[is.na(heatmap_allgos_cc)] <- 1 - 10^(-6)
+not_sig <- heatmap_allgos_cc[ ,c(3,4)] > .01
+sig_gos <- which( rowSums(not_sig) != 2)
+heatmap_allgos_cc <- heatmap_allgos_cc[sig_gos,]
+plotHeatmap(heatmap_allgos_cc,  mar =  c(0, 1.5, .1, 0),
+                oma = c(0, .5, 0, 4), cexRow = .6, cexCol = .2,
+                labCol = NULL, margin = c(.5, 5),
+                breaks = seq(0, 6, .5), key = FALSE, dendrogram = "row" )
+dev.off()
+
+
+
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+               "GO_ribopro_legend.pdf"), width=.45,height= 1)
+par( mfrow = c(1, 1), mar = c(0, .5, .1, 0), mgp = c(.6, .1, 0) )
+ 
+heatcols <-  colorRampPalette(c("white", crayon["Banana Mania"],
+                            crayon["Laser Lemon"],
+                            crayon["Burnt Orange"], crayon["Orange Red"],
+                            crayon["Plum"]))
+breaks  <- seq(0, 6, .5)
+plot(0, pch = "", xlim = c(0,.6), ylim = c(0,1.5), axes = F, xlab = "", ylab = "")
+rect(0 + .2 , colTable[,1]/4, .3 + .2, colTable[,2]/4, 
+      col = heatcols(length(breaks)  - 1), lwd = .5)
+axis(2, at = c(colTable[,1]/4,max(colTable[,2]/4))[seq(1,13,2)],
+     labels = seq(0, 6, length.out = 7), 
+     line= -.6, las = 3, cex.axis = .4, tck = -.1, lwd = .5)
+title(ylab = "-log10 P-value", cex.lab = .4, line = 0)
+#text(0,1.6, adj = 0, "-log10 p", cex = .4)
+dev.off()
+
+```
+
+
+
+
+
+Pull genes from significant GO terms
+
+Because we used the most lenient criterioa in constructing the GO graph, we are going to have genes that are not significant in our graph. 
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "plotDivergenceScatter.R") )
+load(file.path(rdadir, "go_riboproDD.rda"))
+
+golist_cc <- list(go_enhanced = summary(go_enhanced$GO$CC, pvalue = 1), 
+                go_buffered = summary(go_buffered$GO$CC, pvalue = 1)  )
+merge_gos <- merge(golist_cc[[1]][ ,c(1,2,7)],
+                           golist_cc[[2]][ ,c(1,2,7)], 
+                           all = TRUE, by = "GOCCID")
+goset_term <- merge_gos$Term.x
+goset_term[is.na(goset_term)] <- merge_gos$Term.y[is.na(goset_term)]
+heatmap_allgos_cc <- data.frame(GOCCID = merge_gos$GOCCID,
+                                Term = goset_term,
+                                enhanced = merge_gos$Pvalue.x,
+                                buffered = merge_gos$Pvalue.y)
+heatmap_allgos_cc[is.na(heatmap_allgos_cc)] <- 1 - 10^(-6)
+not_sig <- heatmap_allgos_cc[ ,c(3,4)] > .01
+sig_gos <- which( rowSums(not_sig) != 2)
+heatmap_allgos_cc <- heatmap_allgos_cc[sig_gos,]
+
+
+
+
+# make a subsetting vector to indicate which one
+# of the genes in the gene universe
+# is included in the heatmap below
+go_heatmap <- as.character(heatmap_allgos_cc$GOCCID)
+geneSets <- list(buffered = go_buffered$GO, enhanced = go_enhanced$GO)
+sig_go <- lapply(1:length(geneSets), function(i) {
+    goDag <- geneSets[[i]][["CC"]]@goDag
+    nodeData <- goDag@nodeData@data
+    go_all <- names(nodeData)
+    ii_all_in_heatmap <- which(go_all %in% go_heatmap)
+    ii_all_in_heatmap  
+})
+names(sig_go) <- c("buffered", "enhanced")
+
+
+### list significant genes associated with each GO term
+### for enhanced genes only
+load(file.path(rdadir, "eSetRRP.rda"))
+#ENSGIds <- fData(eSetRRP.RP)
+
+# 1. Grab all genes included in the gene universe
+type <- "enhanced"
+entrez_ensem_id <- go_enhanced$geneIds
+colnames(entrez_ensem_id)[1] <- "ENSGID"
+geneIds <- merge(entrez_ensem_id, fData(eSetRRP.RP), by = "ENSGID")
+
+# 2. Grab GO terms with p-value < .01
+#    from those listed in the GO results
+goDag <- geneSets[[type]][["CC"]]@goDag
+nodeData <- goDag@nodeData@data
+go_info <- nodeData[ sig_go[["enhanced"]] ]
+go_info_pval <-sapply(go_info, function(xx) {
+    xx$pvalue
+  })
+go_sig <- which(go_info_pval < .01)
+go_info_sig <- go_info[go_sig]
+
+# compute size of each node
+go_size_sig <- sapply(go_info_sig, function(xx) {
+  NROW(xx)
+})
+go_size_sig
+
+# 3. Report p-values of genes included in 
+#   each significant GO term
+# concatanete divergence analysis results with
+# GO term results
+load("/Users/joycehsiao/Dropbox/manuscript/genelist/genelist.rda")
+go_genes <- lapply(1:length(go_info_sig), function(i) {
+  ii_gene <- which(geneIds$entrezgene %in% go_info_sig[[i]]$geneIds)
+  geneIds_node <- geneIds[ii_gene,]
+  divergeTest <- mat.ribopro$proGTribo[which(mat.ribopro$ENSGID %in% geneIds_node$ENSGID)]
+  data.frame(geneIds[ii_gene,], enhanced = divergeTest)
+})
+names(go_genes) <- names(go_info_sig)
+#a <- sapply(go_genes, function(xx) dim(xx)[1])
+
+
+
+# 4. make a table of all significant GO terms
+#   along with odds ratio and the significant genes
+#   in each category
+go_table_print <- data.frame(GOterm = names(go_info_sig),
+                             pval = sapply(go_info_sig, function(xx) xx$pvalue),
+                             OR = sapply(go_info_sig, function(xx) xx$oddsRatio),
+                             genes_node = sapply(go_genes, nrow),
+                             genes_sig = sapply(go_genes, 
+                                                function(xx) sum(xx$enhanced) ),
+                             genes_sig_id = sapply(go_genes, 
+                                            function(xx) {
+                                              paste(xx$gene.symbol[xx$enhanced],
+                                                    collapse=",")
+                                              })
+                           ) 
+
+matdir <- "/Users/joycehsiao/Dropbox/manuscript/supplemental material/data"
+write.table(go_table_print, 
+            file = file.path(matdir, "genes_enhanced_ribopro.txt"), 
+            sep = "\t", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE)
+
+
+# go_geneName <- sapply(go_genes, function(xx) {
+#               xx$gene.symbol
+#             })
+# go_geneList <- unique( unlist(go_geneName))
+# go_geneIds <- data.frame(geneIds[geneIds$gene.symbol %in% go_geneList,])
+
+
+# load("/Users/joycehsiao/Dropbox/manuscript/genelist/genelist.rda")
+# ii_enhanced <- mat.ribopro$proGTribo == TRUE
+# ii_buffered <- mat.ribopro$riboGTpro == TRUE
+# 
+# ensg_enhanced <- mat.ribopro$ENSGID[ii_enhanced]
+# 
+# go_enhanced_gene_ENSG <- intersect(ensg_enhanced, go_geneIds$ENSGID)
+# go_enhanced_gene_symbol <- go_geneIds$gene.symbol[which(go_geneIds$ENSGID %in% go_enhanced_gene_ENSG)]
+
+
+
+# matdir <- "/Users/joycehsiao/Dropbox/manuscript/supplemental material/data"
+# write.table(go_enhanced_gene_symbol, 
+#             file = file.path(matdir, "genes_enhanced_ribopro.txt"), 
+#             sep = "\t", quote = FALSE, 
+#             row.names = FALSE, col.names = FALSE)
+
+
+# ### Make an adjacency matrix of the GO terms
+# ### based on the number of overlapping significant genes
+# go_adjmatrix <- matrix(0, nrow = length(go_geneName),
+#                        ncol = length(go_geneName))
+# for (k in 1:length(go_geneName) ) {
+#   for (l in 1:length(go_geneName)) {
+#   go_adjmatrix[ k, l ] <- length(intersect(go_geneName[[k]],
+#                                                    go_geneName[[l]]) )
+#   }
+# }
+# colnames(go_adjmatrix) <- rownames(go_adjmatrix) <- names(go_genes)
+# 
+# # genes that are significantly different ribo < pro
+# go_adjmatrix_sig <- matrix(0, nrow = length(go_geneName),
+#                        ncol = length(go_geneName))
+# for (k in 1:length(go_geneName) ) {
+#   for (l in 1:length(go_geneName)) {
+#   nodeset <- intersect(go_geneName[[k]], go_geneName[[l]])
+#   go_adjmatrix_sig[ k, l] <- length( intersect(nodeset, 
+#                                                     go_enhanced_gene_symbol) )
+#   }
+# }
+# colnames(go_adjmatrix_sig) <- rownames(go_adjmatrix_sig) <- names(go_genes)
+
+````
+
+
+
+
+
+
+Boxplots
+
+```{r}
+library(Biobase)
+dir="~/Dropbox/Enrichment_analysis"
+
+
+# get plotting default parameters
+op = par()
+require(parallel)
+library(doMC)
+registerDoMC(cores=4)
+require(plyr)
+library(gplots)
+
+##load data
+load(file.path(dir,"dd.buffer.genelist.030215.RData"))
+
+
+gene.stats <- read.delim(gzfile(file.path(dir,"gene_stats.txt.gz")),
+                         stringsAsFactors=F)
+int.features <- function(x) {
+  c(N.exons=median(x$N.exons),
+    coding.len=median(x$coding.len),
+    utr5.len=median(x$utr5.len[x$utr5.len > 0]),
+    utr3.len=median(x$utr3.len[x$utr3.len > 0]),
+    gc.content=median(x$gc.content),
+    total.len=median(x$coding.len + x$utr5.len + x$utr3.len),
+    uaug.count = median(x$uaug.count))
+}
+int.stats <- ddply(gene.stats, c("ENSG"), int.features, .parallel=T)
+genelist.stats <- merge(dd.buffer.genelist.symbol, int.stats)
+
+biogrid <- read.delim(gzfile( file.path(dir,"BIOGRID-ORGANISM-Homo_sapiens-3.2.98.tab2.txt.gz") ) , stringsAsFactors=F)
+biogrid <- biogrid[which(biogrid$Experimental.System.Type == "physical"),]
+
+interactor.A.counts <- function(x) {
+  ##c(counts.A=length(unique(x$Official.Symbol.Interactor.B)))
+  c(counts.A=dim(x)[1])
+}
+
+I.cnts.A <- ddply(biogrid, c("Official.Symbol.Interactor.A"), 
+                  interactor.A.counts,  .parallel=TRUE)
+
+interactor.B.counts <- function(x) {
+  c(counts.B=dim(x)[1])  
+}
+I.cnts.B <- ddply(biogrid, c("Official.Symbol.Interactor.B"), interactor.B.counts,  .parallel=TRUE)
+names(I.cnts.A)[1] <- "gene.symbol"
+names(I.cnts.B)[1] <- "gene.symbol"
+I.cnts <- merge(I.cnts.A, I.cnts.B, all.x=T, all.y=T)
+I.cnts$counts.A[which(is.na(I.cnts$counts.A))] <- 0
+I.cnts$counts.B[which(is.na(I.cnts$counts.B))] <- 0
+I.cnts$total.counts <- I.cnts$counts.A + I.cnts$counts.B
+genelist.I <- merge(I.cnts, dd.buffer.genelist.symbol)
+
+
+### Ubiq sites
+ubiq <- read.delim(gzfile(file.path(dir,"Ubiquitination_site_dataset.gz")), 
+                   stringsAsFactors=F)
+names(ubiq)[3] <- "gene.symbol"
+ubiq$gene.symbol <- toupper(ubiq$gene.symbol)
+ubiq <- ubiq[which(ubiq$gene.symbol != ""),]
+
+count.sites <- function(x) { c(n.sites=dim(x)[1])}
+
+ubiq.sites <- ddply(ubiq, c("gene.symbol"), count.sites, .parallel=T)
+genelist.ubiq <- merge(dd.buffer.genelist.symbol, ubiq.sites)
+
+
+# Tissue expressed
+dir="~/Dropbox/Enrichment_analysis"
+figdir = file.path(dir,"figs")
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+load(file.path(dir,"dd.buffer.genelist.030215.RData"))
+
+load( file.path(dir, "median_UTR_PhastCons_per_gene.RData") )
+genelist.PhastCons <- merge(dd.buffer.genelist.symbol, UTR)
+
+# expressed in tissue
+data <- read.delim( gzfile(file.path(dir,"U133AGNF1B.gcrma.avg.csv.gz")), 
+                   stringsAsFactors=F, sep=",")
+
+## Load their probes.
+annot <- read.delim( gzfile(file.path(dir,"gnf1h.annot2007.tsv.gz") ), stringsAsFactors=F)
+names(data)[1] <- "ProbesetID"
+
+## Get rid of their custom probes.
+keep.u133a <- data.frame(ProbesetID=setdiff(data$ProbesetID, annot$ProbesetID))
+data <- merge(data, keep.u133a)
+
+## Write file for biomart conversion
+##write.table(data$ProbesetID, file="test_convert.txt", quote=F, col.names=F, row.names=F)
+biomart <- read.delim(gzfile(file.path(dir,"biomart_convert_results.txt.gz")), 
+                      stringsAsFactors=F)
+names(biomart) <- c("ProbesetID", "ENSG")
+data <- merge(data, biomart)
+
+
+count.tissues <- function(x) {
+  expression <- as.matrix(x[,2:85])
+  n.tissues <- c()
+  for(i in 1:dim(expression)[1] ) {
+    n.tissues <- c(n.tissues, sum(log2(expression[i,]) >= 4.5))
+  }
+  c(n.tissues=median(n.tissues, na.rm=T))
+}
+
+all.data <- as.matrix(data[,2:85])
+
+par(mfrow=c(1,1))
+hist(log2(all.data), breaks="fd",
+     main="Number of tissue expressed", 
+     xlab = "log2 number of tissue expressed")
+abline(v=4.5, col="red")
+
+
+Q <- ddply(data, c("ENSG"), count.tissues, .parallel=TRUE)
+genelist.Q <- merge(dd.buffer.genelist.symbol, Q)
+
+
+
+# Missense mutation per AA
+
+read.table(file.path(dir,"snpEff_genes_no_hash.txt"), sep="\t", header=T) ->snpeff
+names(snpeff)[1]<-c("gene.symbol")
+int.features <- function(x) {
+  c(variants_effect_missense_variant=median(x$variants_effect_missense_variant),
+    variants_effect_synonymous_variant=median(x$variants_effect_synonymous_variant))
+}
+int.snpeff <- ddply(snpeff, c("gene.symbol"), int.features, .parallel=T)
+
+genelist.snpeff <- merge(dd.buffer.genelist.symbol, int.snpeff)
+
+
+# Number of Phospho sites per AA
+phospho <- read.delim(gzfile(file.path(dir,"Phosphorylation_site_dataset.gz")), 
+                      stringsAsFactors=F)
+names(phospho)[3] <- "gene.symbol"
+phospho$gene.symbol <- toupper(phospho$gene.symbol)
+phospho$SPECIES <- tolower(phospho$SPECIES)
+phospho <- phospho[which(phospho$SPECIES == "human"),]
+phospho <- phospho[which(phospho$gene.symbol != ""),]
+
+count.sites <- function(x) { c(n.sites=dim(x)[1])}
+
+phospho.sites <- ddply(phospho, c("gene.symbol"), count.sites, .parallel=T)
+genelist.phospho <- merge(dd.buffer.genelist.symbol, phospho.sites)
+
+
+
+
+##load data
+# dir="~/Dropbox/Enrichment_analysis"
+# load(file.path(dir,"dd.buffer.genelist.030215.RData"))
+gene.stats <- read.delim(gzfile(file.path(dir,"gene_stats.txt.gz")),
+                         stringsAsFactors=F)
+int.features <- function(x) {
+  c(N.exons=median(x$N.exons),
+    coding.len=median(x$coding.len),
+    utr5.len=median(x$utr5.len[x$utr5.len > 0]),
+    utr3.len=median(x$utr3.len[x$utr3.len > 0]),
+    gc.content=median(x$gc.content),
+    total.len=median(x$coding.len + x$utr5.len + x$utr3.len),
+    uaug.count = median(x$uaug.count))
+}
+int.stats <- ddply(gene.stats, c("ENSG"), int.features, .parallel=T)
+genelist.stats <- merge(dd.buffer.genelist.symbol, int.stats)
+
+
+
+dir="~/Dropbox/Enrichment_analysis"
+mir.pred <- read.delim( gzfile( file.path(dir,
+        "hg19_predictions_S_C_aug2010.txt.gz") ), 
+        stringsAsFactors = F)
+count.sites <- function(x) { c(n.sites=dim(x)[1]) }
+site.count <- ddply(mir.pred, c("gene_symbol"), count.sites, .parallel=TRUE)
+names(site.count)[1] <- "gene.symbol"
+genelist.mir <- merge(site.count, dd.buffer.genelist.symbol)
+
+save(genelist.ubiq, genelist.I, genelist.PhastCons, genelist.Q,
+     genelist.snpeff, genelist.phospho, genelist.stats, genelist.mir,
+     file=file.path("~/Dropbox/riboRNAShared/rdas/enrichdata.rda"))
+```
+
+
+
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+load(file.path(rdadir,"ribopro.rda"))
+load(file.path(rdadir,"enrichdata.rda"))
+
+source(file.path( codedir, "plotDivergenceScatter.R") )
+source(file.path( codedir, "prepareDivergencePlots.R") )
+#source(file.path( codedir, "plotDivergenceScatter.r") )
+xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
+                        pro=dmat_unnormed$pro)
+xy.rnapro = data.frame(rna=dmat_unnormed$rna,
+                       pro=dmat_unnormed$pro)
+xy.riborna = data.frame(rna=dmat_unnormed$rna,
+                        ribo=dmat_unnormed$ribo)
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "figure5Boxplots_legend.pdf"),
+    width = 3, height = .4)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Goldenrod"], "grey90")
+par(mar = rep(0,4))
+plot(0, pch = "", xlab ="", ylab = "", xlim = c(0,5), ylim = c(0,1.5) )
+#     axes = T)
+rect(0,.6, 1, 1, col = cols[1], lwd = .5)
+text(1.1,.8, adj = 0, labels = "Bufferd at FDR .01", cex = .6)
+rect(3, .6, 4,1, col = cols[2], lwd = .5)
+text(4.1,.8, adj = 0, labels = "Background", cex = .6)
+dev.off()
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_missenseperaa.pdf"),
+    width = 1, height = 1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+ii_buffered <- genelist.snpeff$buffered
+pval <- wilcox.test(genelist.snpeff[ii_buffered, ]$variants_effect_missense_variant/genelist.snpeff[which(ii_buffered),]$protein.length.aa,
+                    genelist.snpeff[which(!ii_buffered), ]$variants_effect_missense_variant/genelist.snpeff[which(!ii_buffered), ]$protein.length.aa)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Goldenrod"], "grey90")
+boxplot(genelist.snpeff[which(ii_buffered),]$variants_effect_missense_variant/genelist.snpeff[which(ii_buffered), ]$protein.length.aa,
+        genelist.snpeff[which(!ii_buffered),]$variants_effect_missense_variant/genelist.snpeff[which(!ii_buffered), ]$protein.length.aa,
+        outline=F, xlab="",lwd = .4,
+        axes = F, col= cols, border = "black", notch = TRUE, ylim = c(0, .025),
+        varwidth = TRUE) 
+title(main = "Number of missense \n mutation per aa", cex.main = .6, line = .5 )
+# axis(1, tck = -.03, cex.axis = .4, lwd = .6,
+#      at = 1:2, labels = c("Buffered","Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .4, lwd = .4, at = c(0, 0.005, 0.015, 0.025), 
+     labels = c(0, 0.005, 0.015, 0.025) )
+
+mtext( paste("p val. = ", round(pval$p.value,4), sep=""), side = 3, cex = .5, line = -.3 )
+dev.off()
+
+
+
+# Number of phosph sites per AA
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_buffer_phosphoperaa.pdf"),
+    width = 1, height = 1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+ii_buffered <- genelist.phospho$buffered
+pval <- wilcox.test(genelist.phospho[which(ii_buffered), ]$n.sites/genelist.phospho[which(ii_buffered),]$protein.length.aa,
+                  genelist.phospho[which(!ii_buffered),]$n.sites/genelist.phospho[which(!ii_buffered),]$protein.length.aa)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Goldenrod"], "grey90")
+plotBoxes2(genelist.phospho[which(ii_buffered), ]$n.sites/genelist.phospho[which(ii_buffered), ]$protein.length.aa,
+           genelist.phospho[which(!ii_buffered), ]$n.sites/genelist.phospho[which(!ii_buffered), ]$protein.length.aa,
+          main = "Number of Phospho \n sites per aa", 
+          cols = cols, main.line = .5, ylim = c(0, .08),
+          labels = c("Buffered","Background"), cex.main = .6)
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .002, sep=""), side = 3, cex = .5, line = -.3 )
+dev.off()
+
+
+### Protein -protein interaction
+buff_pi <- genelist.I[genelist.I$buffered, ]$total.counts
+nonbuff_pi <- genelist.I[!genelist.I$buffered, ]$total.counts
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_buff_proteininteraction.pdf"),
+    width = 1, height = 1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(buff_pi, nonbuff_pi)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Goldenrod"], "grey90")
+boxplot(buff_pi, nonbuff_pi, ylim = c(0, 150),
+        outline=F, xlab="",lwd = .4,
+        axes = F, col= cols, border = "black", notch = TRUE, varwidth = TRUE) 
+title(main = "Number of protein- \n protein interaction", 
+      cex.main = .6, line = .5 )
+# axis(1, tck = -.03, cex.axis = .4, lwd = .6,
+#      at = 1:2, labels = c("Buffered", "Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .4, lwd = .4,
+     at = seq(0, 150, 50), labels = seq(0, 150, 50))
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ",.0002, sep=""), side = 3, cex = .5, line = -.3 )
+dev.off()
+
+
+
+ii_buffered <- genelist.ubiq$buffered
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_buffer_ubiqperaa.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(genelist.ubiq[which(ii_buffered),]$n.sites/genelist.ubiq[which(ii_buffered),]$protein.length.aa,
+                    genelist.ubiq[which(!ii_buffered),]$n.sites/genelist.ubiq[which(!ii_buffered),]$protein.length.aa)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Goldenrod"], "grey90")
+plotBoxes2(genelist.ubiq[which(ii_buffered),]$n.sites/genelist.ubiq[which(ii_buffered),]$protein.length.aa, 
+           genelist.ubiq[which(!ii_buffered),]$n.sites/genelist.ubiq[which(!ii_buffered),]$protein.length.aa,
+          main = "Number of Ubiq site \n per aa", 
+          cols = cols, main.line = .5, cex.main = .6,
+          labels = c("Buffered","Background"), ylim = c(0, .1) )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .003, sep=""), side = 3, cex = .5, line = -.3 )
+dev.off()
+
+
+
+buff_tissue <- genelist.Q[genelist.Q$buffered, ]$n.tissues
+nonbuff_tissue <- genelist.Q[!genelist.Q$buffered, ]$n.tissues
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "enrich_tissuexprs.pdf"),
+    width=1,height=1.6)
+par( mfrow = c(1, 1), mar = c(1, .6, 1.6, .4), mgp = c(.9, .1, 0) )
+pval <- wilcox.test(buff_tissue, nonbuff_tissue)
+require(broman)
+crayon <- brocolors("crayon")
+cols <- c(crayon["Goldenrod"], "grey90")
+plotBoxes2(buff_tissue, nonbuff_tissue,
+          main = "Number of \n tissue expressed", cols = cols,
+          labels = c("Buffered","Background"), ylim = c(0, 100) 
+          , cex.main = .6, main.line = .5 )
+if (pval$p.value < .0001) {
+  pval.plot <- ".0001"
+  } else {
+  pval.plot <- round(pval$p.value,4)
+}
+mtext( paste("p val. < ", .006, sep=""), side = 3, cex = .5, line = -.3 )
+dev.off()
+
+```
+
+
+
+
+
+
+
+# Figure 6
+
+
+Approach 1: Binary stablizing selection (variance rank < X) versus binary buffering variable (Y/N)
+
+```{r,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir,"figs")
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+op = par()
+
+load(file.path(rdadir,"ribopro.rda"))
+dmat = data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
+                  pro=fc.mat$human$protein-fc.mat$chimp$protein)
+
+# consider a buffering score
+require(matrixStats)
+vars = rowVars(exprs(eSetRRP.log2.Qmed[,eSetRRP.log2.Qmed$seqData=="protein"]),
+               na.rm=TRUE)
+mns = rowMeans(exprs(eSetRRP.log2.Qmed[,eSetRRP.log2.Qmed$seqData=="protein"]),
+               na.rm=TRUE)
+cvs = sqrt(vars)/mns
+
+
+# Construct a classification table of stablizing selection (Y/N)
+# versus post translational buffering (Y/N)
+# stabling selected genes include those with the size of the 
+# variances ranked top 300 (ascending) 
+tbl <- table(res.ribopro$int.qval<.01 & (abs(dmat$ribo) > abs(dmat$pro)),
+          rank(vars)<301)
+tbl <- tbl[,2:1]
+tbl <- tbl[2:1,]
+
+
+# Perform chi-square test for the association between 
+# stablizing selection at the protein level (variance rank < 301) 
+# and buffering (Y/N)
+rownames(tbl) = c("buff","no-buff")
+colnames(tbl) = c("stab","no-stab")
+tbl
+chisq.test(tbl)
+
+# Compute relative risk to quantify the associationb between
+# two binary variables
+rr <- (tbl[1,1]/sum(tbl[1,]))/(tbl[2,1]/sum(tbl[2,]))
+
+# Compute the 95% confidence interval for relative risk
+fac <- sqrt( tbl[1,2]/tbl[1,1]/(tbl[1,1]+tbl[1,2]) + tbl[2,2]/tbl[2,1]/(tbl[2,1]+tbl[2,2]))
+
+exp( log(rr) + 1.96*fac ) 
+exp( log(rr) - 1.96*fac ) 
+
+
+
+# Construct a classification table of stablizing selection (Y/N)
+# versus post translational buffering (Y/N)
+# stabling selected genes include those with the size of the 
+# variances ranked top 300 (ascending) 
+tbl <- table(res.ribopro$int.qval<.01 & (abs(dmat$ribo) > abs(dmat$pro)),
+          rank(vars)<1001)
+tbl <- tbl[,2:1]
+tbl <- tbl[2:1,]
+
+# Perform chi-square test for the association between 
+# stablizing selection at the protein level (variance rank < 301) 
+# and buffering (Y/N)
+rownames(tbl) = c("buff","no-buff")
+colnames(tbl) = c("stab","no-stab")
+tbl
+chisq.test(tbl)
+
+# Compute relative risk to quantify the associationb between
+# two binary variables
+rr <- (tbl[1,1]/sum(tbl[1,]))/(tbl[2,1]/sum(tbl[2,]))
+
+# Compute the 95% confidence interval for relative risk
+fac <- sqrt( tbl[1,2]/tbl[1,1]/(tbl[1,1]+tbl[1,2]) + tbl[2,2]/tbl[2,1]/(tbl[2,1]+tbl[2,2]))
+
+exp( log(rr) + 1.96*fac ) 
+exp( log(rr) - 1.96*fac ) 
+```
+
+
+
+
+
+Approach 2: buffered genes are defined as (q-val < .01 & abs(Ribo divergence) > abs(Protein divergence))
+
+
+```{r}
+load(file = file.path(rdadir,"ribopro.rda") )
+
+eSet.temp = eSetRRP.log2.Qmed
+fc.mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.temp$species==c("human","chimp","rhesus")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+    })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","protein")
+  return(data.frame(emat))
+  })
+names(fc.mat)=c("human","chimp","rhesus")
+
+
+
+dmat_human_chimp <-  data.frame(ribo=fc.mat$human$ribo-fc.mat$chimp$ribo,
+                  pro=fc.mat$human$protein-fc.mat$chimp$protein)
+buffer_human_chimp <- res.ribopro$ENSGID[ which( res.ribopro$int.qval < .01 & ( abs(dmat_human_chimp$ribo ) > abs(dmat_human_chimp$pro) ) == TRUE) ]
+
+dmat_human_rhesus <-  data.frame(ribo=fc.mat$human$ribo-fc.mat$rhesus$ribo,
+                  pro=fc.mat$human$protein-fc.mat$rhesus$protein)
+buffer_human_rhesus <- res.ribopro_human_rhesus$ENSGID[ which( res.ribopro_human_rhesus$int.qval < .01 & ( abs(dmat_human_rhesus$ribo ) > abs(dmat_human_rhesus$pro) ) == TRUE) ]
+
+dmat_chimp_rhesus <-  data.frame(ribo=fc.mat$chimp$ribo-fc.mat$rhesus$ribo,
+                  pro=fc.mat$chimp$protein-fc.mat$rhesus$protein)
+buffer_chimp_rhesus <- res.ribopro_chimp_rhesus$ENSGID[ which( res.ribopro_chimp_rhesus$int.qval < .01 & ( abs(dmat_chimp_rhesus$ribo ) > abs(dmat_chimp_rhesus$pro) ) == TRUE) ]
+```                                                     
+
+
+Chi-square test to demonstrate statistical significance of buffering across human-chimp and human-rhesus and of buffering across human-chimp and chimp-rhesus
+```{r}
+## Buffering in human-chimp and buffering in human-rhesus
+v1 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_chimp)
+v2 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_rhesus)
+res <- fisher.test(table(v1,v2))
+res
+
+## Buffering in human-chimp and buffering in chimp-rhesus
+v1 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_chimp)
+v2 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_chimp_rhesus)
+res <- fisher.test(table(v1,v2))
+res
+
+
+
+## compute expected proportions
+## for buffering in human-chimp versus in human-rhesus
+v1 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_chimp)
+v2 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_rhesus)
+tab1 <- table(v1,v2)
+sum(tab1)* tab1[2,2]/rowSums(tab1)[2] * tab1[2,2]/colSums(tab1)[2]
+
+## compute expected proportions
+## for buffering in human-chimp versus in chimp-rhesus
+v1 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_chimp)
+v2 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_chimp_rhesus)
+tab2 <- table(v1,v2)
+sum(tab2)* tab2[2,2]/rowSums(tab2)[2] * tab2[2,2]/colSums(tab2)[2]
+
+## compute expected proportions
+## for buffering in human-rhesus versus in chimp-rhesus
+v1 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_human_rhesus)
+v2 <- as.character(res.ribopro$ENSGID) %in% as.character(buffer_chimp_rhesus)
+tab3 <- table(v1,v2)
+sum(tab3)* tab3[2,2]/rowSums(tab3)[2] * tab3[2,2]/colSums(tab3)[2]
+
+```
+
+
+```{r}
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "buffer_venn.pdf"),
+    width = 2.5, height = 2.5)
+par( mfrow = c(1, 1), mar = c(1, 1, .5, .5), mgp = c(.5, .3, 0) )
+require(broman)
+crayon <- brocolors("crayons")
+require(gplots)
+plot(0, pch = "", ann = FALSE, axes = FALSE, xlim = c(-4, 16), ylim = c(-3, 16))
+points(3.7,9.1, cex = 2.9*length(buffer_human_chimp)/100, 
+       pch = 16, col = alpha(crayon["Red Orange"], .6) )
+points(9.4,7.3, cex = 2.8*length(buffer_chimp_rhesus)/100, 
+       pch = 16, col = alpha(crayon["Pine Green"], .6) )
+text(.3, 13, labels = "Human-Chimp",cex  = .6)
+text(13.5, 13, labels = "Chimp-Rhesus",cex  = .6)
+text(6, -3, labels = "Human-Rhesus",cex  = .6)
+points(6.2, 3.3, pch = 16, cex = 2.2*length(buffer_human_rhesus)/100, 
+       col = alpha(crayon["Tumbleweed"], .6))
+text(2.3, 10, labels = 121, cex  = .6)
+text(3, 6.5, labels = 110, cex  = .6)
+text(5.7, 7.6, labels = 40, cex  = .6)
+text(11, 9, labels = 136, cex  = .6)
+text(8.5, 5.7, labels = 256, cex  = .6)
+text(6.1, 10, labels = 52, cex  = .6)
+text(6, 1, labels = 313, cex  = .6)
+dev.off()
+```
+
+
+
+
+
+Venn Diagram Permutation Test
+
+To test the statistial significance of the evolutinary distance between primate species described in the venn diagram of buffering genes, we designed a permuation-based test and generated the expected prportions of each subset in the venn diagram. 
+
+The permutation test was done in the following steps:
+
+For each pairwise species comparisn, 
+and for each of the 1000 permutations,
+1. we shuffle the gene labels
+2. compute the number of buffered genes
+3. compute number of genes falling into each of the categories in the venn diagram
+
+With the 1000 venn diagrams above, we then computed an empirical null venn diagram or a venn diagram distribution under the expectation of no species difference. Number of genes falling it each subset in each permutation are averaged to get the empirical null number of genes in the venn diagram. 
+
+
+Note. Turns out no statistical test is not need after each permutation of the gene labels. For each gene in each permutation, the identity of the samples remains the same as the original sample, and no changes are made in the labeling of the samples during permutation. Therefore, statistical significance of the genes remain constant across permutations. We could have just taken the original results and shuffle the labels....
+
+
+```{r}
+dir <- "~/Dropbox/riboRNAShared"
+figdir <- file.path(dir, "figs")
+rdadir <- file.path(dir, "rdas")
+codedir <- file.path(dir, "codes")
+load(file.path(rdadir,"ribopro.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+source(file.path(codedir,"normalizationMethods.r"))
+require(Biobase)
+# Normalization 
+# See evaluateNormalizatin.pdf for the other approaches
+# Approach C: standardization, quantile normalization within species and then align median across species
+
+seqData = c("ribo","protein")
+norm.mats <- lapply(1:2, function(i) {
+  emat = exprs(eSetRRP[,eSetRRP$seqData==seqData[i]])
+  if (i==1) log.method="TRUE"
+  if (i==2) log.method="FALSE"
+  qmat.h = normalize(exprs(eSetRRP[ ,eSetRRP$seqData==seqData[i] & eSetRRP$species=="human"]),
+                     geneLen=NULL,method="quantile",log=log.method)
+  qmat.c = normalize(exprs(eSetRRP[ ,eSetRRP$seqData==seqData[i] & eSetRRP$species=="chimp"]),
+                     geneLen=NULL,method="quantile",log=log.method)
+  qmat.r = normalize(exprs(eSetRRP[ ,eSetRRP$seqData==seqData[i] & eSetRRP$species=="rhesus"]),
+                     geneLen=NULL,method="quantile",log=log.method)
+  qmat = cbind(qmat.c,qmat.h,qmat.r)
+  require(matrixStats)
+  meds = colMedians(qmat,na.rm=T)
+  med_grand = median(qmat,na.rm=T)
+  
+  qmat.med = sweep(qmat,2,STATS=meds,FUN="-")
+  qmat.med = qmat.med + med_grand
+  qmat.med
+  })
+
+
+eSetRRP.log2.Qmed <- ExpressionSet(assayData = cbind(norm.mats[[1]],
+                                  norm.mats[[2]]),
+            phenoData=phenoData(eSetRRP[,eSetRRP$seqData!="rna"]))
+featureData(eSetRRP.log2.Qmed) = featureData(eSetRRP[,eSetRRP$seqData!="rna"])
+save(eSetRRP.log2.Qmed, file = file.path(rdadir,"buffer_permdata.rda"))
+
+
+source(file.path(codedir,"interaction2way_full_buffer_general.R"))
+
+# run this job on a cluster
+require(doParallel)
+#ncores <- detectCores()
+#ncores <- 20
+#registerDoParallel(cores = ncores)
+
+nperms <- 1000
+ngenes <- dim( exprs(eSetRRP.log2.Qmed) )[1]
+
+esetHumanChimp <- eSetRRP.log2.Qmed[, eSetRRP.log2.Qmed$species != "rhesus"]
+ribopro_perm_humanchimp <- foreach (i = 1:nperms) %dopar% {
+    ii_perm <- sample(ngenes, ngenes, replace = FALSE)
+    emat <- esetHumanChimp[ii_perm,]
+    perm_res <- 
+      interact2way_full_buffer_general(emat)
+    perm_res
+}
+
+esetHumanRhesus <- eSetRRP.log2.Qmed[ ,eSetRRP.log2.Qmed$species != "chimp"]
+ribopro_perm_humanrhesus <- foreach (i = 1:nperms) %dopar% {
+    ii_perm <- sample(ngenes, ngenes, replace = FALSE)
+    emat <- esetHumanRhesus[ii_perm,]
+    perm_res <- 
+      interact2way_full_buffer_general(emat)
+    perm_res
+}
+
+esetChimpRhesus <- eSetRRP.log2.Qmed[ ,eSetRRP.log2.Qmed$species != "human"]
+ribopro_perm_chimprhesus <- foreach (i = 1:nperms) %dopar% {
+    ii_perm <- sample(ngenes, ngenes, replace = FALSE)
+    emat <- esetChimpRhesus[ii_perm,]
+    perm_res <- 
+      interact2way_full_buffer_general(emat)
+    perm_res
+ }
+
+# save(ribopro_perm_humanchimp,
+#      ribopro_perm_humanchimp, ribopro_perm_chimprhesus,
+#      file = file.path(rdadir, "buffering_perm.rda"))
+```
+
+
+
+```{r}
+dir <- "~/Dropbox/riboRNAShared"
+figdir <- file.path(dir, "figs")
+rdadir <- file.path(dir, "rdas")
+codedir <- file.path(dir, "codes")
+load(file.path(rdadir, "venn_perm_humanrhesus.rda"))
+load(file.path(rdadir, "venn_perm_humanchimp.rda"))
+load(file.path(rdadir, "venn_perm_chimprhesus.rda"))
+
+load(file.path(rdadir, "ribopro.rda"))
+head(res.ribopro)
+sum(res.ribopro$int.qval<.01)
+
+# Data eval
+fit <- ribopro_perm_humanchimp[[1]] 
+sum(fit$int.qval < .01)
+
+fit <- ribopro_perm_humanrhesus[[1]] 
+sum(fit$int.qval < .01, na.rm = TRUE)
+
+fit <- ribopro_perm_chimprhesus[[1]] 
+sum(fit$int.qval < .01, na.rm= TRUE)
+
+
+
+# get fold changes from the original data set
+load(file.path(rdadir,"ribopro.rda"))
+eSet.temp = eSetRRP.log2.Qmed
+fc.mat=lapply(seq_along(c("human","chimp","rhesus")), function(i) {
+  ii = eSet.temp$species==c("human","chimp","rhesus")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+  })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","protein")
+  return(data.frame(emat))
+})
+names(fc.mat)=c("human","chimp","rhesus")
+ribo_venn <- data.frame(human_chimp = (fc.mat$human$ribo - fc.mat$chimp$ribo),
+                        chimp_rhesus = (fc.mat$chimp$ribo - fc.mat$rhesus$ribo),
+                        human_rhesus = (fc.mat$human$ribo - fc.mat$rhesus$ribo) )
+pro_venn <- data.frame(human_chimp = (fc.mat$human$pro - fc.mat$chimp$pro),
+                        chimp_rhesus = (fc.mat$chimp$pro - fc.mat$rhesus$pro),
+                        human_rhesus = (fc.mat$human$pro - fc.mat$rhesus$pro) )
+fc_human_chimp <- abs(ribo_venn$human_chimp) - abs(pro_venn$human_chimp)
+fc_chimp_rhesus <- abs(ribo_venn$chimp_rhesus) - abs(pro_venn$chimp_rhesus)
+fc_human_rhesus <- abs(ribo_venn$human_rhesus) - abs(pro_venn$human_rhesus)
+names(fc_human_chimp) <- fData(eSetRRP.log2.Qmed)$ENSGID
+names(fc_chimp_rhesus) <- names(fc_human_rhesus) <- names(fc_human_chimp)
+
+
+nperms <- length(ribopro_perm_chimprhesus)
+perm_lists <- list(ribopro_perm_humanchimp,
+                   ribopro_perm_chimprhesus,
+                   ribopro_perm_humanrhesus)
+fc_lists <- list(fc_human_chimp,
+                 fc_chimp_rhesus,
+                 fc_human_rhesus)
+ribopro_perm <- lapply(1:length(perm_lists), function(i) {
+    perm_list <- perm_lists[[i]]
+    fc_list <- fc_lists[[i]]
+    mat_perm <- lapply(1:nperms, function(b) {
+      ii_match <- match( perm_list[[b]]$ENSGID, names(fc_list) )
+      mat_merge <- data.frame(perm_list, 
+                              fc_ribopro = fc_list[ii_match] )
+      mat_merge$buff <- mat_merge$int.qval < .01 & mat_merge$fc_ribopro > 0 
+      names(mat_merge$buff) <- c(1:length(mat_merge$buff))
+      mat_merge$buff
+    })
+})
+names(ribopro_perm)  <- c("human_chimp", "chimp_rhesus", "human_rhesus")
+save(ribopro_perm, file = file.path(rdadir, "venn_perm.rda"))
+
+
+
+
+# compute venn diagram
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots","venn_perm_some.pdf") )
+set.seed(666)
+nperms <- length(ribopro_perm[[1]][[1]])
+ii_ransam <- sample( nperms, 9)
+require(gplots)
+par(mfrow = c(3,3))
+for (i in 1:9) {
+  venn( list( human_chimp = which( ribopro_perm[[1]][[i]] ),
+              human_rhesus = which( ribopro_perm[[3]][[i]] ),
+              chimp_rhesus = which( ribopro_perm[[2]][[i]] ) ) )
+}
+dev.off()
+```
+
+
+
+Compute the expected proportions of each subset
+
+```{r}
+dir <- "~/Dropbox/riboRNAShared"
+figdir <- file.path(dir, "figs")
+rdadir <- file.path(dir, "rdas")
+codedir <- file.path(dir, "codes")
+
+load(file.path(rdadir, "venn_perm.rda"))
+
+require(gplots)
+nperms <- length( ribopro_perm[[1]] )
+venn_numbers <- lapply(1:nperms, function(i) {
+    venn_list <-  venn( list( human_chimp = which( ribopro_perm[["human_chimp"]][[i]]),
+              human_rhesus = which( ribopro_perm[["chimp_rhesus"]][[i]]),
+              chimp_rhesus = which( ribopro_perm[["human_rhesus"]][[i]] ) ))
+    venn_list
+  })
+
+save(venn_numbers, file = file.path(rdadir, "venn_perm_numbers.rda"))
+
+# venn_ind <- venn_numbers[[1]][ , -1]
+# venn_exp <- ( (Reduce("+", venn_numbers)/nperms) )[ ,1]
+# venn_expected <- cbind(venn_ind, venn_exp)
+```
+
+
+
+
+
+Summarize Venn analysis
+
+```{r}
+load(file=file.path(rdadir,"ribopro.rda"))
+
+eSet.temp <- eSetRRP.log2.Qmed
+fc.mat <- lapply( seq_along( c("human","chimp","rhesus") ), function(i) {
+  ii <- eSet.temp$species == c("human","chimp","rhesus")[i]
+  eSet.tt <- eSet.temp[ ,ii]
+  emat <- lapply( seq_along(c("ribo","protein")), function(j) {
+    jj <- eSet.tt$seqData == c("ribo","protein")[j]
+    rowMeans( exprs(eSet.tt[,jj]), na.rm=TRUE )
+    })
+  emat <- do.call(cbind, emat)
+  colnames(emat) <- c("ribo","protein")
+  return(data.frame(emat))
+  })
+names(fc.mat) <- c("human","chimp","rhesus")
+
+
+
+dmat_human_chimp <-  data.frame(ribo = fc.mat$human$ribo - fc.mat$chimp$ribo,
+                  pro = fc.mat$human$protein - fc.mat$chimp$protein)
+buffer_human_chimp <- res.ribopro$ENSGID[ which( res.ribopro$int.qval < .01 & ( abs(dmat_human_chimp$ribo ) > abs(dmat_human_chimp$pro) ) == TRUE) ]
+buffer_human_chimp  <- as.character(buffer_human_chimp)
+
+dmat_human_rhesus <-  data.frame(ribo=fc.mat$human$ribo-fc.mat$rhesus$ribo,
+                  pro=fc.mat$human$protein-fc.mat$rhesus$protein)
+buffer_human_rhesus <- res.ribopro_human_rhesus$ENSGID[ which( res.ribopro_human_rhesus$int.qval < .01 & ( abs(dmat_human_rhesus$ribo ) > abs(dmat_human_rhesus$pro) ) == TRUE) ]
+buffer_human_rhesus <- as.character(buffer_human_rhesus)
+
+dmat_chimp_rhesus <-  data.frame(ribo=fc.mat$chimp$ribo-fc.mat$rhesus$ribo,
+                  pro=fc.mat$chimp$protein-fc.mat$rhesus$protein)
+buffer_chimp_rhesus <- res.ribopro_chimp_rhesus$ENSGID[ which( res.ribopro_chimp_rhesus$int.qval < .01 & ( abs(dmat_chimp_rhesus$ribo ) > abs(dmat_chimp_rhesus$pro) ) == TRUE) ]
+buffer_chimp_rhesus <- as.character(buffer_chimp_rhesus)                                                     
+
+
+
+
+
+
+load(file.path(rdadir, "venn_perm.rda"))
+nperms <- length(ribopro_perm[[1]])
+
+load(file.path(rdadir, "venn_perm_numbers.rda") )
+# compute number of genes in categories of interest
+venn_numbers_pair <- lapply(1:nperms, function(i) {
+  exp_numbers <- venn_numbers[[i]][,1]
+  ind_human_chimp <- venn_numbers[[i]][,2]
+  ind_human_rhesus <- venn_numbers[[i]][,3]
+  ind_chimp_rhesus <- venn_numbers[[i]][,4]
+  human_others <- max(exp_numbers*ind_human_chimp*ind_human_rhesus + tail(exp_numbers,1) )
+  chimp_others <- max(exp_numbers*ind_human_chimp*ind_chimp_rhesus + tail(exp_numbers,1) )
+  rhesus_others <- max(exp_numbers*ind_human_rhesus*ind_chimp_rhesus + tail(exp_numbers,1) )
+  data.frame(human_others = human_others,
+             chimp_others = chimp_others,
+             rhesus_others = rhesus_others)
+})
+# venn_ind <- venn_numbers[[1]][ , -1]
+# venn_exp <- ( (Reduce("+", venn_numbers)/nperms) )[ ,1]
+# venn_expected <- cbind(venn_ind, venn_exp)
+
+require(gplots)
+venn_observed <- data.frame(human_others = length(intersect(buffer_human_chimp, buffer_human_rhesus)), chimp_others = length(intersect(buffer_human_chimp, buffer_chimp_rhesus)), rhesus_others = length(intersect(buffer_human_rhesus, buffer_chimp_rhesus)) )
+
+venn_expected <- Reduce("+", venn_numbers_pair)/nperms
+venn_expected_sd_human <- sqrt( var( sapply(venn_numbers_pair,
+                                            "[[", 1) ) )
+venn_expected_sd_chimp <- sqrt( var( sapply(venn_numbers_pair,
+                                            "[[", 2) ) )
+venn_expected_sd_rhesus <- sqrt( var( sapply(venn_numbers_pair,
+                                             "[[", 3) ) )
+venn_compare_pairwise <- data.frame(venn_exp = unlist( venn_expected),
+                                    venn_obs = unlist( venn_observed) )
+
+
+## Compute the empirical p-value
+1 - sum(sapply(venn_numbers_pair, "[[", 1) < venn_observed$human_others)/nperms
+1 - sum(sapply(venn_numbers_pair, "[[", 2) < venn_observed$chimp_others)/nperms
+1 - sum(sapply(venn_numbers_pair, "[[", 3) < venn_observed$rhesus_others)/nperms
+
+
+venn_expected_sd_human
+venn_expected_sd_chimp
+venn_expected_sd_rhesus
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "venn_perm_barplot.pdf"), height = 2.3, width = 2.6 )
+par(mar = c(1,1.5,.3,0), mgp = c(.5, .3, 0), 
+    cex.axis = .6, cex.lab = .6 )
+require(broman)
+crayon <- brocolors("crayons")
+require(scales)
+plot(0, pch ="", ann = FALSE, axes = FALSE, xlim = c(0,8),
+     ylim = c(0, 350))
+xleft1 <- c(.5, 3.3, 6.1)
+xleft2 <- xleft1 + width + .4
+width <- .5
+rect(xleft = xleft1, ybottom = 0, 
+     xright = xleft1 + width, ytop = venn_compare_pairwise$venn_exp,
+     col = crayon["Gray"], border = "white")
+
+## plot error bars
+sds <- c(venn_expected_sd_human, venn_expected_sd_chimp,
+         venn_expected_sd_chimp)
+segments( x0 = xleft1 + width/2, x1 = xleft1+width/2,
+          y0 = venn_compare_pairwise$venn_exp,
+          y1 = venn_compare_pairwise$venn_exp + sds,
+          lwd = 1, col = "black")
+segments( x0 = xleft1 + width/3, x1 = xleft1 + 2*width/3,
+          y0 = venn_compare_pairwise$venn_exp + sds,
+          y1 = venn_compare_pairwise$venn_exp + sds,
+          lwd = 1, col = "black")
+
+rect(xleft = xleft2, ybottom = 0, 
+     xright = xleft2 + width, ytop = venn_compare_pairwise$venn_obs,
+     col = crayon["Goldenrod"], border = "white")
+title(ylab = "Number of genes", line = .6, cex.lab = .7)
+axis(2, line = -.5, tck = -.03, lwd = .4, cex.axis = .5)
+text(xleft1 + width + .2, - 30,
+     labels = c("Human-Others", "Chimp-Others",
+                "Rhesus-Others"), xpd = TRUE, cex = .6 )
+segments( x0 = 0, x1 = 8, 
+         y0 = 0, y1 = 0, lwd = .3, col = "grey60")
+
+# segments( x0 = 0, x1 = 8, 
+#          y0 = seq(0,350,50), y1 = seq(0,350,50), lwd = .3, col = "grey60")
+# segments( x0=8, x1 = 8, 
+#           y0 = 0, y1 = 350, lwd = .4, col = "black")
+
+dev.off()
+
+
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "venn_perm_barplot_legend.pdf"),
+    width = 3, height = .7)
+crayon <- brocolors("crayon")
+cols <- c("grey90",crayon["Goldenrod"])
+par(mar = rep(0,4))
+plot(0, pch = "", xlab ="", ylab = "", xlim = c(0,5), ylim = c(0,1.6) )
+#     axes = T)
+rect(0,.6, 1, 1, col = cols[1], lwd = .5)
+text(1.1,.8, adj = 0, labels = "Expected number of buffered genes", cex = .6)
+rect(0, 1.1, 1,1.5, col = cols[2], lwd = .5)
+text(1.1,1.2, adj = 0, labels = "Observed number of buffered genes at FDR < .01", cex = .6)
+dev.off()
+# legend("topright", pch = 19, col = c(alpha(crayon["Gray"], .7),
+#                                      alpha(crayon["Pine Green"], .7)),
+#        legend = c("Expected frequency", "Observed frequency"),
+#        cex = .6, pt.cex = 1.2)
+
+```
+
+
+
+
+
+Additional analysis
+===================
+
+
+Buffering
+---------
+
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+codedir = file.path(dir, "codes")
+
+source(file.path( codedir, "prepareDivergencePlots.R") )
+#source(file.path( codedir, "plotDivergenceScatter.r") )
+xy.ribopro = data.frame(ribo=dmat_unnormed$ribo,
+                        pro=dmat_unnormed$pro)
+xy.rnapro = data.frame(rna=dmat_unnormed$rna,
+                       pro=dmat_unnormed$pro)
+xy.riborna = data.frame(rna=dmat_unnormed$rna,
+                        ribo=dmat_unnormed$ribo)
+ii_enhanced <- res.ribopro$int.qval < .01 &  abs(xy.ribopro$pro) > abs(xy.ribopro$ribo) 
+ii_buffered <- res.ribopro$int.qval < .01 &  abs(xy.ribopro$ribo) > abs(xy.ribopro$pro) 
+fisher(table(ii_enhanced, ii_buffered))
+
+```
+
+
+
+Replication rates
+------------------
+
+Among all genes
+
+
+```{r DE,eval=F,echo=F}
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir, "figs")
+rdadir = file.path(dir, "rdas")
+load(file.path(rdadir,"eSetRRP.rda"))
+source(file.path(codedir,"DEtesting.r"))
+eSetRRP.log2 = ExpressionSet(assayData = log2(exprs(eSetRRP[,eSetRRP$seqData!="protein"])),
+                       phenoData=phenoData(eSetRRP[,eSetRRP$seqData!="protein"]),
+                       experimentData=experimentData(eSetRRP[,eSetRRP$seqData!="protein"]))
+featureData(eSetRRP.log2) = featureData(eSetRRP)                  
+
+eSetRRP.Q.log2 = ExpressionSet(assayData = log2(exprs(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"])),
+                       phenoData=phenoData(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"]),
+                       experimentData=experimentData(eSetRRP.Q[,eSetRRP.Q$seqData!="protein"]))
+featureData(eSetRRP.Q.log2) = featureData(eSetRRP)                  
+
+riboRes = testDE(eSetRRP.log2,seqData="ribo",species=c("human","chimp"))$res
+riboRes.Q = testDE(eSetRRP.Q.log2,seqData="ribo",species=c("human","chimp"))$res
+
+rnaRes = testDE(eSetRRP.log2,seqData="rna",species=c("human","chimp"))$res
+rnaRes.Q = testDE(eSetRRP.Q.log2,seqData="rna",species=c("human","chimp"))$res
+
+massRes = testDE(eSetRRP,seqData="protein",species=c("human","chimp"))$res
+massRes.Q = testDE(eSetRRP.Q,seqData="protein",species=c("human","chimp"))$res
+
+save(riboRes,riboRes.Q,rnaRes,rnaRes.Q,massRes,massRes.Q,
+     eSetRRP.Q.log2,eSetRRP.log2,
+     file=file.path(rdadir,"DE.rda"))
+```
+
+
+# Figure S6
+Replication rates beteween divergence for each molecular phenotype pair, at FDR = 10%. The rows correspond to genes with significant divergence between human and chimp at the mRNA level, at the translation level, and at the protein level. Given the set of genes with signifiant divergence at each phenotype layer, we computed the percent of genes with significant divergence at one of the other two phenotype layers. 
+
+```{r}
+load(file.path(rdadir,"DE.rda"))
+rna = cbind(sum(rnaRes.Q$qval<.1), 
+      sum(rnaRes.Q$qval <.1 & riboRes.Q$qval<.1),
+      sum(rnaRes.Q$qval <.1 & massRes.Q$qval<.1))
+ribo = cbind(sum(riboRes.Q$qval <.1 & rnaRes$qval<.1),
+             sum(riboRes.Q$qval<.1),
+      sum(massRes.Q$qval<.1 & riboRes.Q$qval<.1 ))
+pro = cbind(sum(massRes.Q$qval <.1 & rnaRes.Q$qval<.1),
+      sum(massRes.Q$qval <.1 & riboRes.Q$qval<.1 ),
+      sum(massRes.Q$qval<.1))
+
+tab=round(rbind(rna/rna[1],ribo/ribo[2],pro/pro[3]),2)
+rownames(tab) = colnames(tab) = c("rna","ribo","pro")
+tab
+
+## Statistical test for comparing proportions
+source(file.path(codedir, "Proptest.r"))
+
+propAll <- (rna[2]+rna[3])/(rna[1]*2)
+PropTest(tab[1,2], tab[1,3], propAll, rna[1], rna[1])
+
+
+
+```
+
+
+
+
+
+Differential divergence replication rate
+
+```{r}
+dir="~/Dropbox/riboRNAShared"
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+source(file.path(codedir,"prepareDivergenceScatter.r"))
+
+xy.ribopro = data.frame(ribo=dmat.ribopro_norm$ribo,pro=dmat.ribopro_norm$pro)
+xy.rnapro = data.frame(rna=dmat.rnapro_norm$rna,pro=dmat.rnapro_norm$pro)
+xy.riborna = data.frame(rna=dmat.riborna_norm$rna,ribo=dmat.riborna_norm$ribo)
+# RNA versus Ribo
+ii_riborna_gt = res.riborna$int.qval<.01 & (abs(xy.riborna$rna) > abs(xy.riborna$ribo))
+ii_riborna_lt = res.riborna$int.qval<.01 & (abs(xy.riborna$rna) < abs(xy.riborna$ribo))
+ii_riborna_null = res.riborna$int.qval>.01 
+
+ii_rnapro_gt = res.rnapro$int.qval < .01 & (abs(xy.rnapro$rna) > abs(xy.rnapro$pro))
+ii_rnapro_lt = res.rnapro$int.qval < .01 & (abs(xy.rnapro$rna) < abs(xy.rnapro$pro))
+ii_rnapro_null = res.rnapro$int.qval > .01 
+
+mat_rep <- cbind(rbind(sum(ii_rnapro_gt & !ii_riborna_gt),sum(ii_rnapro_gt & ii_riborna_gt)),  rbind(sum(ii_rnapro_lt & !ii_riborna_lt),sum(ii_rnapro_lt & ii_riborna_lt)) )
+
+
+pdf(file.path("~/Dropbox/manuscript/supplemental material/plots",
+              "replicate_rnapro.pdf"),
+    width=1.8,height=1.8)
+require(broman)
+crayon <- brocolors("crayon")
+par( mfrow = c(1, 1), mar = c(1.5, 1.5, 1, 1), mgp = c(.9, .2, 0) )
+barplot(mat_rep, col = c(crayon["Outer Space"], crayon["Brick Red"]), 
+        ylim = c(0,300), axes = F)
+axis(1, tck = -.03, at = c(.7,1.89), cex.axis = .4,
+     labels = c("|mRNA| > |Protein|","|Protein| > |mRNA|"), col = "white") 
+axis(2, tck = -.03, cex.axis = .4)
+text(.67, 270, 
+     labels = paste(100*round(mat_rep[2,1]/sum(mat_rep[,1]), 2),"% \n",sep="",
+                    "|mRNA| > |Ribo|" ), cex = .5 )
+text(1.85, 120, 
+     labels = paste(100*round(mat_rep[2,2]/sum(mat_rep[,2]), 2),"% \n",sep="",
+                    "|Ribo| > |mRNA|" ), cex = .5)
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+# Supplementary Figure 3
+
+## Ribosome Profiling data
+
+### PCA plot on unstandardized, normalized RPKM values
+
+```{r,eval=TRUE,echo=FALSE}
+load(file=file.path(rdadir,"eSetRiboProfile.rda"))
+
+# compute standardized RPKM, not including the standard cell line
+# keep genes quantified with more than 1 read in the internal standard cell line
+
+source(file.path(codedir,"makeExpressionSet_ribo.r"))
+riboCountFiles = list.files(file.path(dir,"data/ribo"),pattern="*_081514.table",full.name=TRUE)
+makeSet=makeExpressionSet_ribo(riboCountFiles)
+eSet.ribo = makeSet$eSet
+
+eSet.ribo.none = eSet.ribo[,eSet.ribo$celline!="H19238"]
+
+species = unique(eSet.ribo.none$species)
+ii.species <- lapply(1:length(species),function(j) {
+      temp.mat = exprs(eSet.ribo.none)[,eSet.ribo.none$species==species[j]]>0 
+      rowSums(temp.mat) > 2
+}) 
+names(ii.species) = species
+ii.species = data.frame(do.call(cbind,ii.species))
+ii.filt = ii.species$human*ii.species$chimp*ii.species$rhesus==1
+
+eSet.ribo.none.f = eSet.ribo.none[ii.filt,]
+
+ribo.rpkm = 100*(t(t(exprs(eSet.ribo.none.f))/colSums(exprs(eSet.ribo.none.f)))*(10^6))/fData(eSet.ribo.none.f)$len
+
+
+# replace the zero unstandardized RPKM with NA's
+ii.zero = which(ribo.rpkm==0,arr.ind=TRUE)
+for (i in 1:dim(ii.zero)[1]) {
+  ribo.rpkm[ii.zero[i,1],ii.zero[i,2]] = NA
+}
+
+# qunatile normalize the unstandarized RPKM values
+source(file.path(codedir,"normalizationMethods.r"))
+ribo.rpkm.nos.q = normalize(ribo.rpkm,method="quantile",log=FALSE)
+
+
+par(mfrow=c(1,1),las=1)
+matExpr = ribo.rpkm.nos.q
+ii.na = which(is.na(matExpr),arr.ind=TRUE)
+for (i in 1:dim(ii.na)[1]) {
+  matExpr[ii.na[i,1],ii.na[i,2]] = .5   
+}
+matExpr=log2(matExpr)
+cmatExpr = sweep(t(matExpr),2,colMeans(t(matExpr),na.rm=T),"-")
+sv=svd(cmatExpr)
+svmat=cbind(sv$u[,1],sv$u[,2])
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "pca_ribo_unstandardized.pdf"),width=4.4,height=4.5)
+cols=c(rep("black",5),rep("red",5),rep("darkgreen",5))
+cols.border=c(rep("grey",5),rep("orange",5),rep("chartreuse",5))
+plot(svmat[,1],svmat[,2],main="",xlab="",ylab="",axes=F,cex=2,
+     col=cols.border,bg=cols,pch=21,xlim=c(-.6,.6),ylim=c(-.6,.6))
+axis(1);axis(2)
+title(xlab="First principal component \n (29% of the variation)",line=3.5)
+title(ylab="Second principal component \n (16 % of the variation)",line=2.1)
+# dev.off()
+```
+
+```{r}
+# percent variance explained by each principal component
+eigen = sv$d^2
+round(100*(eigen/sum(eigen)),2)
+
+```
+
+
+### Correlation heatmap of translational evels
+
+```{r,eval=TRUE,echo=FALSE,message=FALSE}
+require(pheatmap)
+
+# png(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "heatmap_ribo_unstandardized.png"), height = 2.3, width = 2.3)
+# par( mfrow = c(1, 1), mar = c(2, 2, 1, 0), mgp = c(.9, .3, 0) )
+# cormat <- cor(t(cmatExpr))
+# colors <- colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100)
+# breaks <-  generate_breaks(as.vector(cormat), length(colors))
+# pheatmap(cormat, cex = .5, lwd = .4, treeheight_row = 20, 
+#          treeheight_col = 20, color = colors, breaks = breaks, legend = TRUE)
+# # changeLegend(breaks, colors)
+# dev.off()
+```
+
+
+
+
+# Ribosome Profiling DE results
+
+```{r,eval=TRUE,echo=FALSE}
+load(file=file.path(rdadir,"eSetRiboProfile.rda"))
+
+# number of genes quantified in RPF analysis
+NROW(exprs(eSet.ribo.rpkmq))
+
+# number of genes differentially expressed between human and chimp
+sum(ribo.Res.hc$qval<.01)
+
+# number of genes differentially expressed between human and rhesus
+sum(ribo.Res.hr$qval<.01)
+
+# chi-square test between Human-Chimp DE comparison and Human-Rhesus comparison
+tbl = table(ribo.Res.hc$qval<.01,ribo.Res.hr$qval<.01)
+tbl
+chisq.test(tbl)
+
+```
+
+
+
+
+# Supplementary Figure 4 (DE analysis of ribosome occupancy levels)
+
+```{r,eval=TRUE,echo=TRUE}
+
+mat=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.ribo.rpkmq$species==c("human","chimp")[i]
+  emat = exprs(eSet.ribo.rpkmq)[,ii]
+  mn=rowMeans(emat,na.rm=T)
+  return(mn)
+  })
+names(mat)=c("human","chimp")
+
+xx=(mat[[1]]+mat[[2]])/2
+yy=mat[[1]]-mat[[2]]
+xy=cbind(xx,yy)
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "MAplot_ribo_humanchimp.pdf"),height=4,width=4)
+require(scales)
+plot(xy,pch=16,xlab="log2(Human)+log2(Chimp)",ylab="log2(Human/Chimp)",
+              xlim=c(-5,8),ylim=c(-10,10),main="",axes=F,cex=.4,
+              col=alpha("black",.5))
+points(xx[ribo.Res.hc$qval<.01],yy[ribo.Res.hc$qval<.01],col=alpha("red",.5),cex=.6)
+axis(1);axis(2)
+# dev.off()
+
+
+xx=(mat[[1]]-mat[[2]])
+yy=-log10(ribo.Res.hc$qval)
+xy=cbind(xx,yy)
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "Volcano_ribo_humanchimp.pdf"),height=4,width=4)
+plot(xy,pch=16,ylim=c(0,6),axes=F,cex=.4,col=alpha("black",.5),
+              xlim=c(-10,10),xlab="log2(Human/Chimp)",ylab="-log10(q-value)")
+points(xx[ribo.Res.hc$qval<.01],yy[ribo.Res.hc$qval<.01],cex=.6,
+       col=alpha("red",.5))
+axis(1);axis(2)
+# dev.off()
+```
+
+
+```{r,eval=TRUE,echo=FALSE}
+require(gplots)
+venn(list(HR=ribo.Res.hr$ENSGID[ribo.Res.hr$qval<.01],
+                RC=ribo.Res.rc$ENSGID[ribo.Res.rc$qval<.01],
+                HC=ribo.Res.hc$ENSGID[ribo.Res.hc$qval<.01]))
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "Venn_ribo_DE.pdf"),height=4,width=4)
+require(venneuler)
+v = venneuler(c(A=sum(ribo.Res.hr$qval<.01),
+                B=sum(ribo.Res.rc$qval<.01),
+                C=sum(ribo.Res.hc$qval<.01),
+                "A&B"=sum(ribo.Res.hr$qval<.01 & ribo.Res.rc$qval<.01),
+                "A&C" = sum(ribo.Res.hr$qval<.01 & ribo.Res.hc$qval<.01),
+                "B&C" = sum(ribo.Res.rc$qval<.01 & ribo.Res.hc$qval<.01),
+                "A&B&C" = sum(ribo.Res.hr$qval<.01 & ribo.Res.rc$qval<.01 & ribo.Res.hc$qval<.01)))
+v$labels=""
+plot(v)                
+# dev.off()
+
+```
+
+
+# Correlation between molecular phenotypes
+
+```{r,eval=TRUE,echo=TRUE}
+
+load(file=file.path(rdadir,"eSetRRP.rda"))
+
+# ribo and rna are unstandardized rpkm values, protein is standardized
+qmat=exprs(eSetRRP.RP)
+qmat[,eSetRRP.RP$seqData=="protein"] = 2^qmat[,eSetRRP.RP$seqData=="protein"]
+source(file.path(codedir,"normalizationMethods.r"))
+qmat=log2(normalize(qmat,method="quantile",log="FALSE"))
+
+# number of genes quantified across all three layers
+NROW(qmat)
+```
+
+## Sample level correlation between data types (use unstandardized RPKM)
+
+```{r,eval=TRUE,echo=FALSE}
+# load(file.path(paste(dir,"/data/protein/ibaq",sep=""),"chimp_ibaq.Rdata"))
+# chimp.ibaq = ibaq.data
+# load(file.path(paste(dir,"/data/protein/ibaq",sep=""),"human_ibaq.Rdata"))
+# human.ibaq = ibaq.data
+# ibaq = merge(human.ibaq,chimp.ibaq)
+
+species = c("human","chimp","rhesus")
+corrs = lapply(1:3,function(j) {
+  mat.rna = qmat[,eSetRRP.RP$seqData=="rna" & eSetRRP.RP$species==species[j]]
+  mat.ribo = qmat[,eSetRRP.RP$seqData=="ribo" & eSetRRP.RP$species==species[j]]
+  mat.pro = qmat[,eSetRRP.RP$seqData=="protein" & eSetRRP.RP$species==species[j]]
+  
+  corrs.riborna = lapply(1:NCOL(mat.rna),function(i) {
+    cor(mat.rna[,i],mat.ribo[,i],use="pairwise.complete.obs",method="spearman")
+    })
+  names(corrs.riborna) = colnames(mat.rna)
+  corrs.riborna=do.call(rbind,corrs.riborna)
+  
+  corrs.ribopro = lapply(1:NCOL(mat.rna),function(i) {
+    cor(mat.pro[,i],mat.ribo[,i],use="pairwise.complete.obs",method="spearman")
+    })
+  names(corrs.ribopro) = colnames(mat.rna)
+  corrs.ribopro=do.call(rbind,corrs.ribopro)
+  
+  corrs.rnapro = lapply(1:NCOL(mat.rna),function(i) {
+    cor(mat.pro[,i],mat.rna[,i],use="pairwise.complete.obs",method="spearman")
+    })
+  names(corrs.rnapro) = colnames(mat.rna)
+  corrs.rnapro=do.call(rbind,corrs.rnapro)
+  
+  mat = cbind(corrs.riborna,corrs.ribopro,corrs.rnapro)
+  colnames(mat) = c("riborna","ribopro","rnapro")
+  return(mat)
+})
+names(corrs) = species
+
+
+par(mfrow=c(1,1))
+cormat=matrix(0,3,15)
+cormat[1,] =as.vector(cbind(t(corrs[[1]][,1]),t(corrs[[2]][,1]),t(corrs[[3]][,1])))
+cormat[2,] =as.vector(cbind(t(corrs[[1]][,2]),t(corrs[[2]][,2]),t(corrs[[3]][,2])))
+cormat[3,] =as.vector(cbind(t(corrs[[1]][,3]),t(corrs[[2]][,3]),t(corrs[[3]][,3])))
+colnames(cormat) = sapply(strsplit(colnames(cbind(t(corrs[[1]][,1]),
+          t(corrs[[2]][,1]),t(corrs[[3]][,1]))), split=".",fixed=TRUE),"[",1)
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "corr_each_samples_divergence_genes.pdf"),height=3,width=6)
+cols=c("blue4","orangered4","darkorchid")
+col.border=c("blue","orangered","darkorchid1")
+plot(0,ylim=c(-.2,1),xlim=c(1,16),
+     axes=F,xlab="Samples",ylab="Spearman's Rho coefficient",pch="")
+for (k in 1:3){
+  vec=cormat[k,]
+  points(vec,col=col.border[k],bg=cols[k],pch=21)
+}
+par(mgp=c(3,.7,0),cex.axis=.7,las=2,cex.lab=.8)
+axis(2)
+axis(1,at=c(1:15),labels=colnames(cormat))
+for (i in 1:15) {
+  abline(v=i,lty=1,col="grey")
+}
+# dev.off()
+```
+
+
+```{r,eval=TRUE,echo=FALSE}
+# use unstandardized ribo and rna
+# keep standardized protein data
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "corr_select_samples_divergence_genes.pdf"),height=8,width=8)
+
+par(mfrow=c(3,3),mar=c(4,4,2,1),mgp=c(3,1,0))
+
+species = c("human","chimp","rhesus")
+samples = c("GM18507","Min18359","R181-96")
+for (k in 1:3) {
+  mat.rna = qmat[,eSetRRP.RP$seqData=="rna" & eSetRRP.RP$species==species[k]]
+  mat.ribo = qmat[,eSetRRP.RP$seqData=="ribo" & eSetRRP.RP$species==species[k]]
+  mat.pro = qmat[,eSetRRP.RP$seqData=="protein" & eSetRRP.RP$species==species[k]]
+  
+  plot(mat.rna[,2],mat.ribo[,2],pch=21,col="blue",bg="blue4",cex=.8,xlab="mRNA expression level",ylab="RPF level",axes=F,xlim=c(-5,15),ylim=c(-5,15))
+  axis(1);axis(2)
+  abline(lm(mat.ribo[,2]~mat.rna[,2]),col="blue",lty=2)
+  text(-4,15,labels=samples[k],adj=0)
+  text(-4,13,labels=paste("Spearman's rho =", round(corrs[[k]][2,1],2)),adj=0)
+  
+  plot(mat.rna[,2],mat.pro[,2],pch=21,col="orangered",bg="orangered4",cex=.8,
+       xlab="mRNA expression level",ylab="Protein expression level",axes=F,
+       xlim=c(-5,15),ylim=c(-5,15))
+  axis(1);axis(2)
+  abline(lm(mat.pro[,2]~mat.rna[,2]),col="blue",lty=2)
+  text(-4,15,labels=samples[k],adj=0)
+  text(-4,13,labels=paste("Spearman's rho =", round(corrs[[k]][2,3],2)),adj=0)
+  
+  plot(mat.ribo[,2],mat.pro[,2],pch=21,col="darkorchid1",bg="darkorchid",cex=.8,
+       xlab="RPF level",ylab="Protein expression level",axes=F,
+       xlim=c(-5,15),ylim=c(-5,15))
+  axis(1);axis(2)
+  abline(lm(mat.pro[,2]~mat.ribo[,2]),col="blue",lty=2)
+  text(-4,15,labels=samples[k],adj=0)
+  text(-4,13,labels=paste("Spearman's rho =", round(corrs[[k]][2,2],2)),adj=0)
+}
+# dev.off()
+```
+
+
+
+## Gene level correlation across samples between data types (use standarized RPKM values)
+
+```{r,eval=TRUE,echo=FALSE}
+# use standardized RPKM values
+
+load(file=file.path(rdadir,"eSetRRP.Q.all.rda"))
+
+mat1 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="rna"]
+mat2 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="ribo"]
+corrs = sapply(1:dim(mat1)[1], function(i) {
+  cor(mat1[i,],mat2[i,],use="pairwise.complete.obs",method="spearman")  
+})
+corrs.riborna = unlist(corrs)
+
+mat1 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="protein"]
+mat2 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="ribo"]
+corrs = sapply(1:dim(mat1)[1], function(i) {
+  cor(mat1[i,],mat2[i,],use="pairwise.complete.obs",method="spearman")  
+})
+corrs.ribopro = unlist(corrs)
+
+
+mat1 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="protein"]
+mat2 = exprs(eSetRRP.Q.all)[,eSetRRP.Q.all$seqData=="rna"]
+corrs = sapply(1:dim(mat1)[1], function(i) {
+  cor(mat1[i,],mat2[i,],use="pairwise.complete.obs",method="spearman")  
+})
+corrs.rnapro = unlist(corrs)
+```
+
+
+```{r,eval=T,echo=TRUE}
+#Spearman's correlation between rna and protein
+median(corrs.rnapro)
+
+#Spearman's correlation between ribo and rna
+median(corrs.riborna)
+
+#Spearman's correlation between ribo and protein
+median(corrs.ribopro)
+
+# plot(corrs2,corrs3,xlab="ribo and protein",ylab="rna and and protein",pch=".")
+
+```
+
+
+
+
+```{r,eval=TRUE,echo=FALSE}
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "corr_genes_divergence_genes.pdf"), height = 1.8*.8, width = 2*.8)
+# require(broman)
+# crayon <- brocolors("crayon")
+# cols = c(crayon["Red Orange"],
+#          crayon["Pine Green"],
+#          crayon["Cornflower"])
+# col.border <- "grey40"
+# cex.main <- .4
+# cex.mtext <- .3
+#   # cols=c("blue4","orangered4","darkorchid")
+# # col.border=c("blue","orangered","darkorchid1")
+# par(mfrow=c(1,1),mgp=c(.5, .1 , 0), mar = c(2, 1.5, 1, 0), lwd = .3)
+# #Spearman's correlation between ribo and rna
+# hist(corrs.riborna,main="",
+#      breaks=seq(-1,1,.05),xlim=c(-1,1),ylim=c(0,200),
+#      col=cols[1],border=col.border, axes = F, ylab ="", xlab ="")
+# title(ylab = "Frequency", xlab="Spearman's rank correlation coefficient",
+#       cex.lab = .3)
+# axis(1, tck = -.03, cex.axis = .3, lwd = .6)
+# axis(2, tck = -.03, cex.axis = .3, lwd = .6)
+# title("mRNA and RPF expression level",cex.main=cex.main)
+# abline(v=median(corrs.riborna), col = crayon["Purple Heart"], 
+#      lwd = 2)
+# text(-.95, 180, adj = 0,
+#      labels=paste("Median Spearman = ",
+#                   round(median(corrs.riborna),2)) ,cex = cex.mtext )
+# 
+# #Spearman's correlation between rna and protein
+# hist(corrs.rnapro, main="", 
+#      breaks=seq(-1,1,.05),xlim=c(-1,1),ylim=c(0,200),
+#      col=cols[2],border = col.border, axes = F, ylab ="", xlab ="")
+# title(ylab = "Frequency", xlab="Spearman's rank correlation coefficient",
+#       cex.lab = .3)
+# axis(1, tck = -.03, cex.axis = .3, lwd = .6)
+# axis(2, tck = -.03, cex.axis = .3, lwd = .6)
+# title("mRNA and protein expression level",cex.main=cex.main)
+# abline(v=median(corrs.rnapro), col = crayon["Purple Heart"], 
+#      lwd = 2)
+# text(-.95, 180,adj=0,
+#      labels=paste("Median Spearman = ",
+#                   round(median(corrs.rnapro),2)) ,cex = cex.mtext )
+# 
+# #Spearman's correlation between ribo and protein
+# hist(corrs.ribopro,main="",
+#      breaks=seq(-1,1,.05),xlim=c(-1,1),ylim=c(0,200),
+#      col=cols[3],border=col.border, axes = F, ylab ="", xlab ="")
+# title(ylab = "Frequency", xlab="Spearman's rank correlation coefficient",
+#       cex.lab = .3)
+# axis(1, tck = -.03, cex.axis = .3, lwd = .6)
+# axis(2, tck = -.03, cex.axis = .3, lwd = .6)
+# title("RPF and protein expression level",cex.main=cex.main)
+# abline(v=median(corrs.ribopro), col = crayon["Purple Heart"], 
+#      lwd = 2)
+# text(-.95, 180,adj=0,
+#      labels=paste("Median Spearman = ",
+#                   round(median(corrs.ribopro),2)), cex = cex.mtext)
+# dev.off()
+
+```
+
+
+
+
+
+# Divergence analysis of transcription versus translation
+
+```{r,eval=TRUE,echo=FALSE}
+library(Biobase)
+rm(list=ls())
+dir="~/Dropbox/riboRNAShared"
+figdir = file.path(dir,"figs")
+rdadir = file.path(dir,"rdas")
+codedir = file.path(dir,"codes")
+op = par()
+
+load(file.path(rdadir,"eSetRRP.rda"))
+load(file.path(rdadir,"DE.rda"))
+source(file.path(codedir,"DEtesting.r"))
+
+riboRes.Q = testDE(eSetRRP.Q.log2,seqData="ribo",species=c("human","chimp"))$res
+rnaRes.Q = testDE(eSetRRP.Q.log2,seqData="rna",species=c("human","chimp"))$res
+massRes.Q = testDE(eSetRRP.Q,seqData="protein",species=c("human","chimp"))$res
+
+save(riboRes.Q,rnaRes.Q,massRes.Q,file=file.path(rdadir,"de_effectsize.rda"))
+
+
+load(file.path(rdadir,"de_effectsize.rda"))
+
+xy = data.frame(x=rnaRes.Q$coef,y=riboRes.Q$coef)
+dcols=densCols(xy)
+plot(xy,col=dcols,pch=20,
+     xlab="mRNA log2 RPKM (Human/Chimp)", ylab="Ribo log2 RPKM (Human/Chimp)",
+     xlim=c(-7,7),ylim=c(-7,7),main="Transcriptional vs. translational divergence",
+     axes=F)
+axis(1);axis(2)
+fit = lm(y~x,data=xy)
+abline(fit)
+# nd = data.frame(x=seq(min(xy$x),max(xy$x),.01))
+# p_conf = predict(fit,interval="confidence",
+#                  newdata=nd)
+# lines(nd$x,p_conf[,"lwr"],type="b",pch="+")
+
+# col.border: ribo, rna, protein
+col.border=c("darkolivegreen1","salmon","paleturquoise")
+points(xy[riboRes.Q$qval<.01,],col=col.border[1])
+points(xy[rnaRes.Q$qval<.01,],col=col.border[2])
+
+riboRes.Q$qval
+rnaRes.Q$qval
+
+
+# pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots",
+#               "de_effect_size.pdf"),height=5,width=10)
+
+# ribo, rna, protein
+cols=c("darkgreen","salmon4","paleturquoise4")
+col.border=c("darkolivegreen1","salmon","paleturquoise")
+
+par(cex.axis=.7,cex.lab=.7)
+
+ii.both = rnaRes.Q$qval<.01 & riboRes.Q$qval<.01
+ii.rna = rnaRes.Q$qval<.01 & riboRes.Q$qval>.01
+ii.ribo = rnaRes.Q$qval>.01 & riboRes.Q$qval<.01
+
+mat1 = dmat[ii.both,]
+mat1 = mat1[,]
+
+# boxplot(mat1$rna,mat1$ribo)
+# boxplot(mat1$rna[mat1$rna>0],mat1$ribo[mat1$ribo>0])
+# boxplot(mat1$rna[mat1$rna<0],mat1$ribo[mat1$ribo<0])
+
+require(scales)
+plot(mat1$rna,col=alpha(cols[2],.5),bg=col.border[2],pch=21,ylim=c(-7,7),
+     xlab="",ylab="",axes=F)
+points(mat1$ribo,col=alpha(cols[1],.5),bg=col.border[1],pch=21)
+axis(1);axis(2)
+title(xlab="genes sorted by mRNA standardized fold change",
+      ylab="standardized fold change (fold change/pooled standard deviation)")
+legend("topleft",legend=c("ribosome","mRNA","protein"),col=cols,pt.bg=col.border,
+       box.col="white",pch=21)
+
+# DE in protein but no DE in rna
+mat2 = dmat[ii.pro,]
+mat2 = mat2[order(mat2$pro),]
+
+plot(mat2$rna,col=alpha(cols[2],.5),bg=col.border[2],pch=21,ylim=c(-10,12),
+     xlab="",ylab="",axes=F)
+points(mat2$protein,col=alpha(cols[3],.5),bg=col.border[3],pch=21)
+points(mat2$ribo,col=alpha(cols[1],.5),bg=col.border[1],pch=21)
+axis(1);axis(2)
+title(xlab="genes sorted by protein standardized fold change",
+      ylab="standardized fold change (fold change/pooled standard deviation)")
+legend("topleft",legend=c("ribosome","mRNA","protein"),col=cols,pt.bg=col.border,
+       box.col="white",pch=21)
+
+dev.off()
+
+
+
+
+par(cex.axis=.7,cex.lab=.7)
+
+# DE in rna but no DE in protein
+mat1 = dmat[ii.rna,]
+mat1 = mat1[order(mat1$ribo),]
+
+# require(pheatmap)
+# pheatmap(mat1)
+
+require(scales)
+plot(mat1$rna,mat1$ribo,col="black")
+points(mat1$rna,mat1$protein,col="red")
+
+col=alpha(cols[2],.5),bg=col.border[2],pch=21,ylim=c(-10,12),
+     xlab="",ylab="",axes=F)
+points(mat1$protein,col=alpha(cols[3],.5),bg=col.border[3],pch=21)
+points(mat1$ribo,col=alpha(cols[1],.5),bg=col.border[1],pch=21)
+axis(1);axis(2)
+title(xlab="genes sorted by mRNA standardized fold change",
+      ylab="standardized fold change (fold change/pooled standard deviation)")
+legend("topleft",legend=c("ribosome","mRNA","protein"),col=cols,pt.bg=col.border,
+       box.col="white",pch=21)
+
+# DE in protein but no DE in rna
+mat2 = dmat[ii.pro,]
+mat2 = mat2[order(mat2$ribo),]
+
+plot(mat2$rna,col=alpha(cols[2],.5),bg=col.border[2],pch=21,ylim=c(-10,12),
+     xlab="",ylab="",axes=F)
+points(mat2$protein,col=alpha(cols[3],.5),bg=col.border[3],pch=21)
+points(mat2$ribo,col=alpha(cols[1],.5),bg=col.border[1],pch=21)
+axis(1);axis(2)
+title(xlab="genes sorted by protein standardized fold change",
+      ylab="standardized fold change (fold change/pooled standard deviation)")
+legend("topleft",legend=c("ribosome","mRNA","protein"),col=cols,pt.bg=col.border,
+       box.col="white",pch=21)
+```
+
+
+
+# Supplementary Figure 7
+
+```{r,eval=T,echo=F,message=FALSE}
+load(file.path(rdadir,"TEnew.rda"))
+load(file.path(rdadir,"eSetRRP.rda"))
+
+eSet.temp = eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species!="rhesus"]
+mat.Q=lapply(seq_along(c("human","chimp")), function(i) {
+  ii = eSet.temp$species==c("human","chimp")[i]
+  eSet.tt = eSet.temp[,ii]
+  emat = lapply(seq_along(c("ribo","rna","protein")),function(j) {
+    jj = eSet.tt$seqData==c("ribo","rna","protein")[j]
+    rowMeans(exprs(eSet.tt[,jj]),na.rm=TRUE)
+    })
+  emat=do.call(cbind,emat)
+  colnames(emat)=c("ribo","rna","protein")
+  return(data.frame(emat))
+  })
+names(mat.Q)=c("human","chimp")
+
+dmat = data.frame(rna=mat.Q$human$rna-mat.Q$chimp$rna,
+                  ribo=mat.Q$human$ribo-mat.Q$chimp$ribo,
+                  pro=mat.Q$human$protein-mat.Q$chimp$protein)
+
+# # pdf(file.path("/Users/joycehsiao/Dropbox/manuscript/supplemental material/plots","DD_riborna.pdf"),height=3,width=3)
+# require(RColorBrewer)
+# par(mfrow=c(1,1))
+# xy = data.frame(x=dmat$ribo,y=dmat$rna)
+# dcols=densCols(xy,colramp=colorRampPalette(brewer.pal(9, "Greys")[-(1:2)]))
+# plot(xy,bg=dcols,col="grey",pch=23,cex=.8,
+#      ylab="mRNA log2 RPKM (Human/Chimp)", xlab="Ribo log2 RPKM (Human/Chimp)",
+#      xlim=c(-7,10),ylim=c(-7,10),axes=F)
+# # title(main="Transcriptional vs. translational divergence")
+# axis(1);axis(2)
+
+require(scales)
+points(xy[res.riborna$int.qval<.01 & (abs(xy$x)<abs(xy$y)),],
+       col=alpha("blue",.5),bg="dodgerblue",pch=23,cex=.8)
+points(xy[res.riborna$int.qval<.01 & (abs(xy$x)>abs(xy$y)),],
+       col=alpha("blue",.5),bg="blue4",pch=23,cex=.8)
+
+*correlation among all genes
+*correlation among genes either DE at Ribo or RNA
+
+ii = rnaRes.Q$qval<.01 | riboRes.Q$qval < .01
+corrs = round(cor(xy[ii,],method="spearman")[2,1],2)
+# corrs
+legend("topleft",legend=c(paste("mRNA > Ribo divergence: ",
+            sum(res.riborna$int.qval<.01 & (abs(xy$x)<abs(xy$y))),"genes"),
+            paste("Ribo > mRNA divergence: ",
+            sum(res.riborna$int.qval<.01 & (abs(xy$x)>abs(xy$y))),"genes")),
+    pt.bg=c("dodgerblue","blue4"),
+    col=c("blue","blue"),box.col="white",pch=23,cex=1)
+mtext(text=paste("(a)",NROW(res.riborna),"genes,","Rho = ",corrs),side=3,adj=0,cex=.7)
+
+
+
+par(mfrow=c(1,1))
+xy = data.frame(x=dmat$ribo,y=dmat$rna)
+xy = xy[res.riborna$int.qval<.01,]
+dcols=densCols(xy,colramp=colorRampPalette(brewer.pal(9, "Greys")[-(1:2)]))
+plot(xy,bg=dcols,col="grey",pch=23,cex=.8,
+     ylab="mRNA log2 RPKM (Human/Chimp)", xlab="Ribo log2 RPKM (Human/Chimp)",
+     xlim=c(-7,10),ylim=c(-7,10),axes=F)
+# title(main="Transcriptional vs. translational divergence")
+axis(1);axis(2)
+require(scales)
+points(xy[(abs(xy$x)<abs(xy$y)),],
+       col=alpha("blue",.5),bg="dodgerblue",pch=23,cex=.8)
+points(xy[(abs(xy$x)>abs(xy$y)),],
+       col=alpha("blue",.5),bg="blue4",pch=23,cex=.8)
+corrs = round(cor(xy,method="spearman")[2,1],2)
+mtext(text=paste("(b)",NROW(xy),"genes,","Rho = ",corrs),side=3,adj=0,
+      cex=.7)
+
+# dev.off()
+
+
+```
+
+
+
+
+
+

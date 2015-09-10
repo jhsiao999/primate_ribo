@@ -1,0 +1,234 @@
+---
+output:
+  knitrBootstrap::bootstrap_document:
+    title: "Compare transcript divergence with translation divergence - 
+            including genes that may not be quantified in Mass Spec data "
+    theme: default
+    theme.chooser: TRUE
+    highlight.chooser: TRUE
+---
+
+
+Differential divergence analysis
+=================================
+
+```{r run_author, results='asis', echo=FALSE}
+email <- "<a href='mailto:joyce.hsiao1@gmail.com'>Joyce Hsiao</a>"
+cat(paste("Author:", email))
+```
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+
+[view source](compare-ribo-rna-quantified-in-sequencing.Rmd)
+
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+```
+
+
+
+Goal
+====
+
+We analyzed all three pairwise species comparisons of translation efficiency
+using a set of genes that may not be quantified in Mass Spectrometry data. 
+This step is to investigate and ascertain results obtained from a smaller set 
+of genes that are quantified across all three phenotypes.
+
+
+
+Inter-species comparisons
+=========================
+
+We used a likelihood ratio test to compare species divergence 
+at the Ribo level versus at the RNA level.
+
+
+```{r, eval = F}
+
+# Load rdas of genes quantified in RNA and Ribo
+# eSetRPKM: RPKM values 
+# eSetGM: RPKM values relative to the standard cell line
+# eSetRPKM.Q and eSetGM.Q: data quantile-normalized within each data type
+load(file.path(rdadir,"normeddatasub.rda"))
+
+
+# log transform the RPKM values
+emat <- exprs(eSetRPKM.Q)
+emat.log2 <- log2(emat)
+eSetRPKM.Q.log2 <- ExpressionSet(assayData = emat.log2,
+                            phenoData = phenoData(eSetRPKM.Q),
+                            experimentData = experimentData(eSetRPKM.Q) )
+featureData(eSetRPKM.Q.log2) <- featureData(eSetRPKM.Q)                  
+
+
+# Compare human and chimp
+eset_human_chimp <- eSetRPKM.Q.log2[ ,eSetRPKM.Q.log2$species != "rhesus"]
+res.riborna_full_human_chimp <- interact2way(eset_human_chimp)
+
+# Compare chimp and rhesus
+eset_chimp_rhesus <- eSetRPKM.Q.log2[ ,eSetRPKM.Q.log2$species != "human"]
+res.riborna_full_chimp_rhesus <- interact2way(eset_chimp_rhesus)
+
+# Compare human and rhesus
+eset_human_rhesus <- eSetRPKM.Q.log2[ ,eSetRPKM.Q.log2$species != "chimp"]
+res.riborna_full_human_rhesus <- interact2way(eset_human_rhesus)
+
+save(eSetRPKM.Q.log2,
+     res.riborna_full_human_chimp,
+     res.riborna_full_chimp_rhesus,
+     res.riborna_full_human_rhesus, 
+     file = file.path(rdadir,"TE_full.rda"))
+```
+
+
+The genes with significant interaction effect at FDR < .01 are considered
+as significant in species difference between RNA and Ribo, or equivalently,
+species difference in translation efficiency. 
+
+
+```{r}
+load(file.path(rdadir, "TE_full.rda"))
+
+ngenes <- dim(res.riborna_full_human_chimp)[1]
+
+# Check the number of genes for which
+# the likelihood ratio test statistic can not be computed
+
+na_mat <- data.frame(total_genes = ngenes,
+                     human_chimp_na = sum(is.na(res.riborna_full_human_chimp$int.pval)),
+                     human_rhesus_na = sum(is.na(res.riborna_full_human_rhesus$int.pval)),
+                     chimp_rhesus_na = sum(is.na(res.riborna_full_chimp_rhesus$int.pval)) )
+kable(na_mat)
+```
+
+
+Exclude the two NA genes.
+
+```{r}
+ii_exclude_genes <- is.na(res.riborna_full_human_rhesus$int.pval)
+
+exprs(eSetRPKM.Q.log2)[which(ii_exclude_genes), ]
+```
+
+
+
+```{r}
+sig_genes <- 
+    data.frame(total_genes = ngenes - sum(ii_exclude_genes),
+               human_chimp = sum(res.riborna_full_human_chimp$int.qval[
+                                which(!ii_exclude_genes)] < .01, na.rm = TRUE),
+               human_rhesus = sum(res.riborna_full_human_rhesus$int.qval[
+                                which(!ii_exclude_genes)] < .01, na.rm = TRUE),
+               chimp_rhesus = sum(res.riborna_full_chimp_rhesus$int.qval[
+                                which(!ii_exclude_genes)] < .01, na.rm = TRUE) )
+kable(sig_genes)
+```
+
+
+
+p-value distributions
+=====================
+
+```{r}
+par(mfrow = c(2,2))
+plot_list <- list(human_chimp = res.riborna_full_human_chimp$int.pval,
+                  chimp_rhesus = res.riborna_full_chimp_rhesus$int.pval,
+                  human_rhesus = res.riborna_full_human_rhesus$int.pval)
+for (i in 1: length(plot_list)) {
+  hist(plot_list[[i]], xlab = "p-value", main = names(plot_list)[i] )
+}
+```
+
+
+
+
+q-value distributions
+=====================
+
+```{r}
+par(mfrow = c(2,2))
+plot_list <- list(human_chimp = res.riborna_full_human_chimp$int.qval,
+                  chimp_rhesus = res.riborna_full_chimp_rhesus$int.qval,
+                  human_rhesus = res.riborna_full_human_rhesus$int.qval)
+for (i in 1: length(plot_list)) {
+  hist(plot_list[[i]], xlab = "q-value", main = names(plot_list)[i] )
+}
+```
+
+
+
+
+BH-adjusted p-value distributions
+=================================
+
+```{r}
+par(mfrow = c(2,2))
+plot_list <- list(human_chimp = p.adjust(res.riborna_full_human_chimp$int.pval,
+                                         method = "hochberg"),
+                  chimp_rhesus = p.adjust(res.riborna_full_chimp_rhesus$int.pval,
+                                          method = "hochberg"),
+                  human_rhesus = p.adjust(res.riborna_full_human_rhesus$int.pval,
+                                          method = "hochberg") )
+for (i in 1: length(plot_list)) {
+  hist(plot_list[[i]], xlab = "BH adjusted p-value", main = names(plot_list)[i] )
+}
+
+# human vs. chimp BH adjusted p-values
+summary(plot_list[[1]]) 
+
+# chimp vs. rhesus BH adjusted p-values
+summary(plot_list[[2]]) 
+
+# human vs. rhesus
+summary(plot_list[[3]]) 
+```
+
+
+
+
+
+
+
+
+
+
+Session information
+====================
+
+```{r}
+sessionInfo()
+```
+
