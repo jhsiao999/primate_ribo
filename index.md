@@ -12,8 +12,9 @@ tagline:
   * [Attenuation/enhancement of divergence]()
   * [Manuscript figures]()
 
-**Last updated:** `r Sys.Date()`
+**Last updated:** 2015-10-05 
 
+---
 
 #### Preprocessing <a id = 'preprocessing'></a>
 
