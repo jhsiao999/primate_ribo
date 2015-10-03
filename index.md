@@ -4,15 +4,22 @@ title: "A comparative study of primate translation divergence"
 tagline: 
 ---
 
+#### Home
+  * [Preprocessing](#preprocessing)
+  * [Differential expression analysis]()
+  * [Differential divergence analysis]()
+  * [Buffering]()
+  * [Attenuation/enhancement of divergence]()
+  * [Manuscript figures]()
 
-### Preprocessing
+
+#### Preprocessing <a id = 'preprocessing'></a>
 
 * [Normalization](pages/upcoming.html)
 * [Filtering](pages/upcoming.html)
 
 
-
-### Differential expression analysis
+#### Differential expression analysis
 
 * [Ribosome profiling](project/analysis/DE-ribo.html)
 * [RNA and mass spectrometry](pages/upcoming.html)
@@ -20,7 +27,7 @@ tagline:
 
 
 
-### Differential divergence analysis
+#### Differential divergence analysis
 
 * RNA vs. Ribo divergence (translation efficiency comparisons)
     * [Of 3,188 genes quantified in all three phenotypes](project/analysis/compare-ribo-rna-divergence.html)
@@ -31,7 +38,7 @@ tagline:
     * [Ash]
 
 
-### Buffering
+#### Buffering
 
 * Version-20150101
     * RNA vs. Ribo divergence and RNA vs. Protein divergence
@@ -42,7 +49,7 @@ tagline:
 	* [Permutation-based significance testing](project/analysis/null-data-1000.html)
 	* [Simulation experiments](project/analysis/divergence-table-simulate.html)
 
-### Attenuation or enhancement of divergence
+#### Attenuation or enhancement of divergence
 
 * Version-20150812
     * RNA vs. Ribo divergence
@@ -67,9 +74,7 @@ tagline:
         * [RNA-Ribo divergence conditioned on RNA-protein divergence](project/analysis/translation-divergence-rna-protein-divergence-20150814.html)
 
 
-
-
-### Manuscript figures
+#### Manuscript figures
 
 * [Main figures](pages/upcoming.html)
 * [Supplemental Figures](pages/upcoming.html)
