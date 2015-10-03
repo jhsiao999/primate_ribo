@@ -6,11 +6,11 @@ tagline:
 
 #### Home
   * [Preprocessing](#preprocessing)
-  * [Differential expression analysis]()
-  * [Differential divergence analysis]()
-  * [Buffering]()
-  * [Attenuation/enhancement of divergence]()
-  * [Manuscript figures]()
+  * [Differential expression analysis](#differential-expression)
+  * [Differential divergence analysis](#differential-divergence)
+  * [Buffering](#buffering)
+  * [Attenuation/enhancement of divergence](#attenuation-divergence)
+  * [Manuscript figures](#manuscript)
 
 **Last updated:** 2015-10-05 
 
@@ -22,7 +22,7 @@ tagline:
 * [Filtering](pages/upcoming.html)
 
 
-#### Differential expression analysis
+#### Differential expression analysis <a id = 'differential-expression'></a>
 
 * [Ribosome profiling](project/analysis/DE-ribo.html)
 * [RNA and mass spectrometry](pages/upcoming.html)
@@ -30,7 +30,7 @@ tagline:
 
 
 
-#### Differential divergence analysis
+#### Differential divergence analysis <a id = 'differential-divergence'></a>
 
 * RNA vs. Ribo divergence (translation efficiency comparisons)
     * [Of 3,188 genes quantified in all three phenotypes](project/analysis/compare-ribo-rna-divergence.html)
@@ -41,7 +41,7 @@ tagline:
     * [Ash]
 
 
-#### Buffering
+#### Buffering <a id = 'buffering'></a>
 
 * Version-20150101
     * RNA vs. Ribo divergence and RNA vs. Protein divergence
@@ -52,7 +52,8 @@ tagline:
 	* [Permutation-based significance testing](project/analysis/null-data-1000.html)
 	* [Simulation experiments](project/analysis/divergence-table-simulate.html)
 
-#### Attenuation or enhancement of divergence
+
+#### Attenuation or enhancement of divergence <a id = 'attenuation-divergence'></a>
 
 * Version-20150812
     * RNA vs. Ribo divergence
@@ -77,7 +78,7 @@ tagline:
         * [RNA-Ribo divergence conditioned on RNA-protein divergence](project/analysis/translation-divergence-rna-protein-divergence-20150814.html)
 
 
-#### Manuscript figures
+#### Manuscript figures <a id = 'manuscript'></a>
 
 * [Main figures](pages/upcoming.html)
 * [Supplemental Figures](pages/upcoming.html)
