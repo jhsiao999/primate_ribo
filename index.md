@@ -21,6 +21,7 @@ tagline:
 * [Normalization](pages/upcoming.html)
 * [Filtering](pages/upcoming.html)
 
+---
 
 #### Differential expression analysis <a id = 'differential-expression'></a>
 
@@ -28,7 +29,7 @@ tagline:
 * [RNA and mass spectrometry](pages/upcoming.html)
 * [For the 3,188 genes quantified in all 3 phenotypes](pages/upcoming.html)
 
-
+---
 
 #### Differential divergence analysis <a id = 'differential-divergence'></a>
 
@@ -40,6 +41,7 @@ tagline:
     * [Permtuation-based test](project/analysis/permutation-interaction-test.html)
     * [Ash]
 
+---
 
 #### Buffering <a id = 'buffering'></a>
 
@@ -52,6 +54,7 @@ tagline:
 	* [Permutation-based significance testing](project/analysis/null-data-1000.html)
 	* [Simulation experiments](project/analysis/divergence-table-simulate.html)
 
+---
 
 #### Attenuation or enhancement of divergence <a id = 'attenuation-divergence'></a>
 
@@ -77,8 +80,11 @@ tagline:
         * [RNA-protein divergence conditioned on RNA-Ribo divergence](project/analysis/translation-efficiency-protein-divergence-20150814.html)
         * [RNA-Ribo divergence conditioned on RNA-protein divergence](project/analysis/translation-divergence-rna-protein-divergence-20150814.html)
 
+---
 
 #### Manuscript figures <a id = 'manuscript'></a>
 
 * [Main figures](pages/upcoming.html)
 * [Supplemental Figures](pages/upcoming.html)
+
+---
