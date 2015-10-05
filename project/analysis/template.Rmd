@@ -1,7 +1,7 @@
 ---
 output:
   knitrBootstrap::bootstrap_document:
-    title: "your titile"
+    title: "RNA vs. Ribo divergence"
     theme: default
     theme.chooser: TRUE
     highlight.chooser: TRUE

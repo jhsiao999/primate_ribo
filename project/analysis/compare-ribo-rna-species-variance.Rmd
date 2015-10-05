@@ -1,0 +1,387 @@
+---
+title: "RNA vs. Ribo divergence, different variance per species"
+author: "Joyce Hsiao"
+date: "2015-10-05"
+output: 
+  html_document:
+    toc: true
+---
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+We compare the RNA species divergence versus Ribo species divergence using the likelihood ratio test under the framework of nested linear model. 
+
+In this document, we attempt the differential divergence LRT test while allowing for variances to differ by species for each gene. This is in an effort to evaluate our initial results of differential divergence, which allow for differing variances between sequence technology. 
+
+
+> Although the p-value distributions when modeling varying variances by species and technology were similar to when ony modeling varying variances by species, we observe a significant difference in the q-value distributions betweew these two scenarios. These results are likley due to a small pi0 estimate (about .01) under the scenaior of varying variances by species and technology compare to the scenaior of varying variances by speciees.
+
+
+
+Set up
+======
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+
+library(qvalue)
+```
+
+
+
+Helper functions
+================
+
+Create per gene likelihood ratio test functions that model varying variances across species and that model varying variances across both species and technology types.
+
+
+```{r}
+interact2way_species <- function(eSet) {
+
+  fNames <- featureNames(eSet)
+  require(nlme)
+  gls.res <- lapply(1:length(fNames), function(i) {
+  
+    mat1 <- eSet[ featureNames(eSet)==fNames[i], ]
+    mat1aov.temp <- data.frame( cov=c(t(exprs(mat1))), seqData=mat1$seqData,
+                              species = mat1$species, celline=mat1$celline )
+    mat1aov.temp$species <- as.factor(mat1aov.temp$species)
+    mat1aov.temp$seqData <- as.factor(mat1aov.temp$seqData)
+    
+    # Fit two-way main effect model
+    fit_null_try <- tryCatch(
+                    fit_null <- gls( cov ~ species + seqData,
+                                       weights = varIdent(form=~1|species), 
+                                       data=mat1aov.temp,
+                                       na.action = na.omit ),
+                    condition = function(c) c   
+                    )
+    
+    if( inherits( fit_null_try, "condition") ) {
+
+        res <- data.frame(LRatio = NA, LR_pval = NA)
+  
+    } else {
+        # Fit interaction model  
+        fit_interact_try <- tryCatch(
+                            fit_interact <- gls( cov ~ species * seqData,
+                                                  weights = varIdent(form = ~1| species),
+                                                  data = mat1aov.temp, 
+                                                  na.action = na.omit ),
+                            condition = function(c) c   
+                            )
+        if( inherits( fit_interact_try, "condition") ) {
+            res <- data.frame(LRatio = NA, LR_pval = NA)
+        } else {
+        # Likelihood ratio test
+            aov <- anova(fit_null_try, fit_interact_try)
+            res <- data.frame( LRatio = aov[2, "L.Ratio"],
+                               LR_pval = aov[2, "p-value"])
+          } 
+    return(res) 
+    }
+  })
+  LR_res <- do.call(rbind, gls.res)  
+  int.qval <- get_qval(LR_res$LR_pval)
+  return(data.frame(ENSGID=fNames, 
+                    LRatio = LR_res$LRatio,
+                    int.pval = LR_res$LR_pval,
+                    int.qval = int.qval))
+}
+
+
+interact2way_species_tech <- function(eSet) {
+
+  fNames <- featureNames(eSet)
+  require(nlme)
+  gls.res <- lapply(1:length(fNames), function(i) {
+  
+    mat1 <- eSet[ featureNames(eSet)==fNames[i], ]
+    mat1aov.temp <- data.frame( cov=c(t(exprs(mat1))), seqData=mat1$seqData,
+                              species = mat1$species, celline=mat1$celline )
+    mat1aov.temp$species <- as.factor(mat1aov.temp$species)
+    mat1aov.temp$seqData <- as.factor(mat1aov.temp$seqData)
+    
+    # Fit two-way main effect model
+    fit_null_try <- tryCatch(
+                    fit_null <- gls( cov ~ species + seqData,
+                                       weights = varIdent(form=~1| species*seqData), 
+                                       data=mat1aov.temp,
+                                       na.action = na.omit ),
+                    condition = function(c) c   
+                    )
+    
+    if( inherits( fit_null_try, "condition") ) {
+
+        res <- data.frame(LRatio = NA, LR_pval = NA)
+  
+    } else {
+        # Fit interaction model  
+        fit_interact_try <- tryCatch(
+                            fit_interact <- gls( cov ~ species * seqData,
+                                                  weights = varIdent(form = ~1| species*seqData),
+                                                  data = mat1aov.temp, 
+                                                  na.action = na.omit ),
+                            condition = function(c) c   
+                            )
+        if( inherits( fit_interact_try, "condition") ) {
+            res <- data.frame(LRatio = NA, LR_pval = NA)
+        } else {
+        # Likelihood ratio test
+            aov <- anova(fit_null_try, fit_interact_try)
+            res <- data.frame( LRatio = aov[2, "L.Ratio"],
+                               LR_pval = aov[2, "p-value"])
+          } 
+    return(res) 
+    }
+  })
+  LR_res <- do.call(rbind, gls.res)  
+  int.qval <- get_qval(LR_res$LR_pval)
+  return(data.frame(ENSGID=fNames, 
+                    LRatio = LR_res$LRatio,
+                    int.pval = LR_res$LR_pval,
+                    int.qval = int.qval))
+}
+
+```
+
+
+
+
+Interaction, varying variances by species and technology
+========================================================
+
+`eSetRRP.RP.Q.log2` includes log2 quantile-normalized RPKM values.
+
+```{r, eval = FALSE}
+load(file.path(rdadir,"eSetRRP.rda"))
+
+eSet <- eSetRRP.RP.Q.log2[ , 
+          eSetRRP.RP.Q.log2$seqData != "protein"]
+
+# Human versus Chimp
+res.riborna_human_chimp_int <- interact2way_species_tech(eSet[ , eSet$species != "rhesus"])
+
+# Human versus Rhesus
+res.riborna_human_rhesus_int <- interact2way_species_tech(eSet[ , eSet$species != "chimp"])
+
+# Chimp versus Rhesus
+res.riborna_chimp_rhesus_int <- interact2way_species_tech(eSet[ , eSet$species != "human"])
+
+
+save(res.riborna_human_chimp_int, res.riborna_human_rhesus_int,
+     res.riborna_chimp_rhesus_int, file = file.path(rdadir,"riborna_int.rda"))
+```
+
+
+Q-value distribution
+=====================
+
+
+```{r}
+load(file = file.path(rdadir,"riborna_int.rda"))
+
+hist(res.riborna_human_chimp_int$int.pval, main = "Human vs. Chimp")
+
+hist(res.riborna_human_rhesus_int$int.pval, main = "Human vs. Rhesus")
+
+hist(res.riborna_chimp_rhesus_int$int.pval, main = "Chimp vs. Rhesus")
+```
+
+
+Compare models
+===============
+
+Compare results under the assumption of per gene sample variances vary by species versus when per gene sample variances vary by both species and 
+technology.
+
+
+## Human versus Chimp
+
+```{r}
+load(file = file.path(rdadir,"riborna_int.rda"))
+load(file = file.path(rdadir,"TEnew.rda"))
+
+head(res.riborna)
+hist(res.riborna$int.pval, main = "Human versus Chimp, \n varying by species")
+```
+
+
+Scatter plot of p-values.
+
+```{r}
+plot(y = res.riborna_human_chimp_int$int.pval,
+     x = res.riborna$int.pval, main = "Human vs. Chimp",
+     xlim = c(0,1), ylim = c(0,1),
+     ylab = "LR p-value, varying variances by species and technology",
+     xlab = "LR p-value, varying variances by species")
+abline(0, 1, col = "red")
+
+
+plot(y = res.riborna_human_chimp_int$int.qval,
+     x = res.riborna$int.qval, main = "Human vs. Chimp",
+     xlim = c(0, .1), ylim = c(0, .1),
+     ylab = "LR q-value, varying variances by species and technology",
+     xlab = "LR q-value, varying variances by species")
+abline(0, 1, col = "red")
+```
+
+
+Three times as many genes pass the cutoff when assuming varying variances
+by species and technology.
+
+```{r}
+sum(res.riborna$int.qval < .01)
+sum(res.riborna_human_chimp_int$int.qval < .01)
+```
+
+
+
+```{r}
+str(qvalue(res.riborna$int.pval))
+str(qvalue(res.riborna_human_chimp_int$int.pval))
+
+
+sum(qvalue(res.riborna$int.pval)$lfdr < .01)
+sum(qvalue(res.riborna_human_chimp_int$int.pval)$lfdr < .01 )
+```
+
+
+
+
+## Human versus Rhesus
+
+```{r}
+load(file = file.path(rdadir,"riborna_int.rda"))
+load(file = file.path(rdadir,"TE_other_interspecies.rda"))
+```
+
+
+Scatter plot of p-values.
+
+```{r}
+plot(y = res.riborna_human_rhesus_int$int.pval,
+     x = res.riborna_human_rhesus$int.pval, main = "Human vs. Rhesus",
+     xlim = c(0,1), ylim = c(0,1),
+     ylab = "LR p-value, varying variances by species and technology",
+     xlab = "LR p-value, varying variances by species")
+abline(0, 1, col = "red")
+
+
+plot(y = res.riborna_human_rhesus_int$int.qval,
+     x = res.riborna_human_rhesus$int.qval, main = "Human vs. Rhesus",
+     xlim = c(0, .1), ylim = c(0, .1),
+     ylab = "Q-value, varying variances by species and technology",
+     xlab = "Q-value, varying variances by species")
+abline(0, 1, col = "red")
+```
+
+
+Three times as many genes pass the cutoff when assuming varying variances
+by species and technology.
+
+```{r}
+sum(res.riborna_human_rhesus$int.qval < .01)
+sum(res.riborna_human_rhesus_int$int.qval < .01, na.rm = TRUE)
+```
+
+
+
+```{r}
+str(qvalue(res.riborna_human_rhesus$int.pval))
+str(qvalue(res.riborna_human_rhesus_int$int.pval[!is.na(res.riborna_human_rhesus_int$int.pval)]))
+
+
+sum(qvalue(res.riborna_human_rhesus$int.pval)$lfdr < .01)
+sum(qvalue(res.riborna_human_rhesus_int$int.pval[!is.na(res.riborna_human_rhesus_int$int.pval)])$lfdr < .01 )
+```
+
+
+
+
+## Chimp versus Rhesus
+
+```{r}
+load(file = file.path(rdadir,"riborna_int.rda"))
+load(file = file.path(rdadir,"TE_other_interspecies.rda"))
+```
+
+
+Scatter plot of p-values.
+
+```{r}
+plot(y = res.riborna_chimp_rhesus_int$int.pval,
+     x = res.riborna_chimp_rhesus$int.pval, main = "Chimp vs. Rhesus",
+     xlim = c(0,1), ylim = c(0,1),
+     ylab = "LR p-value, varying variances by species and technology",
+     xlab = "LR p-value, varying variances by species")
+abline(0, 1, col = "red")
+
+
+plot(y = res.riborna_chimp_rhesus_int$int.qval,
+     x = res.riborna_chimp_rhesus$int.qval, main = "Chimp vs. Rhesus",
+     xlim = c(0, .1), ylim = c(0, .1),
+     ylab = "Q-value, varying variances by species and technology",
+     xlab = "Q-value, varying variances by species")
+abline(0, 1, col = "red")
+```
+
+
+Two times as many genes pass the cutoff when assuming varying variances
+by species and technology.
+
+```{r}
+sum(res.riborna_chimp_rhesus$int.qval < .01)
+sum(res.riborna_chimp_rhesus_int$int.qval < .01, na.rm = TRUE)
+```
+
+
+
+```{r}
+str(qvalue(res.riborna_chimp_rhesus$int.pval))
+str(qvalue(res.riborna_chimp_rhesus_int$int.pval[!is.na(res.riborna_chimp_rhesus_int$int.pval)]))
+
+
+sum(qvalue(res.riborna_chimp_rhesus$int.pval)$lfdr < .01)
+sum(qvalue(res.riborna_chimp_rhesus_int$int.pval[!is.na(res.riborna_human_rhesus_int$int.pval)])$lfdr < .01 )
+```
+
+
+
+Session information
+========================
+
+
+```{r}
+sessionInfo()
+```
+
