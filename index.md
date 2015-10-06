@@ -43,6 +43,7 @@ tagline:
 
 * What's up with the LR statistic p-value distribution
     * [LRT vs. t-test p-values](project/analysis/beta-ribo-rna.html)
+    * [t-test, voom adjusted](project/analysis/beta-ribo-rna-voom.html)
     * [ASH](project/analysis/ash-ribo-rna.html)
 
 ---
