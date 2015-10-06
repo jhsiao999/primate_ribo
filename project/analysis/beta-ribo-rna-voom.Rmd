@@ -125,6 +125,33 @@ names(voom_fit)
 ```
 
 
+*With voom weights, distribution of the weighted variance.
+
+```{r}
+obs_weighted <- voom_fit$E*voom_fit$weights
+
+require(matrixStats)
+boxplot(log2(data.frame(human_rna = rowVars(obs_weighted[ , pData(eSet_sub)$species == "human" & pData(eSet_sub)$seqData == "rna"], na.rm = TRUE),
+                   human_ribo = rowVars(obs_weighted[ , pData(eSet_sub)$species == "human" & pData(eSet_sub)$seqData == "ribo"], na.rm = TRUE),
+                   chimp_rna = rowVars(obs_weighted[ , pData(eSet_sub)$species == "chimp" & pData(eSet_sub)$seqData == "rna"], na.rm = TRUE),
+                   chimp_ribo = rowVars(obs_weighted[ , pData(eSet_sub)$species == "chimp" & pData(eSet_sub)$seqData == "ribo"], na.rm = TRUE)
+                   ) ) )
+
+```
+
+
+
+*Unweighted, distribution of the variances.
+
+```{r}
+require(matrixStats)
+boxplot(log2(data.frame(human_rna = rowVars(voom_fit$E[ , pData(eSet_sub)$species == "human" & pData(eSet_sub)$seqData == "rna"], na.rm = TRUE),
+                   human_ribo = rowVars(voom_fit$E[ , pData(eSet_sub)$species == "human" & pData(eSet_sub)$seqData == "ribo"], na.rm = TRUE),
+                   chimp_rna = rowVars(voom_fit$E[ , pData(eSet_sub)$species == "chimp" & pData(eSet_sub)$seqData == "rna"], na.rm = TRUE),
+                   chimp_ribo = rowVars(voom_fit$E[ , pData(eSet_sub)$species == "chimp" & pData(eSet_sub)$seqData == "ribo"], na.rm = TRUE)
+                   ) ) )
+
+```
 
 t-test
 ======================
