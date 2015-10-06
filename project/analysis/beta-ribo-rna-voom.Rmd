@@ -14,6 +14,7 @@ last_update <- Sys.time()
 cat(paste("Last updated:", last_update))
 ```
 
+
 Apply the voom method to weight data of each gene, in order to address heterogeneity of variances.
 
 
@@ -50,6 +51,56 @@ library(Humanzee)
 ```
 
 
+Helper functions
+================
+
+Generate regression coefficients and their standard errors.
+
+```{r}
+interact2way_coef_voom <- function (eSet, weights) 
+{
+  fNames <- featureNames(eSet)
+  require(nlme)
+  gls.res <- lapply(1:length(fNames), function(i) {
+    mat1 <- eSet[featureNames(eSet) == fNames[i], ]
+    mat1aov.temp <- data.frame(cov = c(t(exprs(mat1))), seqData = mat1$seqData, 
+                               species = mat1$species, celline = mat1$celline)
+    mat1aov.temp$species <- as.factor(mat1aov.temp$species)
+    mat1aov.temp$seqData <- as.factor(mat1aov.temp$seqData)
+      fit_null_try <- 
+        tryCatch(fit_null <- gls(cov ~ species + seqData, 
+                                 weights = weights[i, ], 
+                                 data = mat1aov.temp, na.action = na.omit), 
+                 condition = function(c) c)
+    if (inherits(fit_null_try, "condition")) {
+      res <- data.frame(LRatio = NA, LR_pval = NA)
+    }
+    else {
+      fit_interact_try <- 
+        tryCatch(fit_interact <- gls(cov ~ species * seqData, 
+                                     weights = weights[i, ], 
+                                     data = mat1aov.temp, na.action = na.omit), 
+                  condition = function(c) c)
+    if (inherits(fit_interact_try, "condition")) {
+      res <- data.frame(LRatio = NA, LR_pval = NA)
+    }
+    else {
+      aov <- anova(fit_null_try, fit_interact_try)
+      res <- data.frame(LRatio = aov[2, "L.Ratio"], 
+                        LR_pval = aov[2, "p-value"])
+    }
+      return(res)
+    }
+  })
+  LR_res <- do.call(rbind, gls.res)
+  int.qval <- get_qval(LR_res$LR_pval)
+  return(data.frame(ENSGID = fNames, LRatio = LR_res$LRatio, 
+                    int.pval = LR_res$LR_pval, int.qval = int.qval))
+}
+```
+
+
+
 Compute voom weights
 ==========================
 
@@ -74,7 +125,8 @@ names(voom_fit)
 ```
 
 
-Weighted linear models
+
+t-test
 ======================
 
 Human vs. Chimp
@@ -114,6 +166,42 @@ qvals <- qvalue(contrast_fit$F.p.value)$qvalue
 sum(qvals < .01)
 ```
 
+
+
+
+
+Likelihood ratio test
+========================
+
+Human vs. Chimp
+
+```{r}
+load(file.path(rdadir, "eSetRRP.rda"))
+
+eSet_human_chimp <- eSetRRP.RP.Q.log2[ , 
+          eSetRRP.RP.Q.log2$seqData != "protein" & eSetRRP.RP.Q.log2$species != "rhesus"]
+
+fit_LR_voom <- interact2way_coef_voom(eSet = eSet_human_chimp, 
+                                      weights = fit$weights) 
+
+names(fit_LR_voom)
+```
+
+
+
+Distribution of the p-values for the interaction effect.
+
+```{r}
+hist(fit_LR_voom$int.pval, main = "Interaction p-value")
+```
+
+
+False discovery rate
+
+```{r}
+qvals <- qvalue(fit_LR_voom$int.pval)$qvalue
+sum(qvals < .01)
+```
 
 
 
