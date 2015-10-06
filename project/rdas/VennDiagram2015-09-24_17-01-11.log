@@ -1,0 +1,7 @@
+INFO [2015-09-24 17:01:11] [[1]]
+INFO [2015-09-24 17:01:11] list(mat.riborna$q.sig, mat.riborna$perm.p.sig)
+INFO [2015-09-24 17:01:11] 
+INFO [2015-09-24 17:01:11] $filename
+INFO [2015-09-24 17:01:11] NULL
+INFO [2015-09-24 17:01:11] 
+ERROR [2015-09-24 17:01:11] Unexpected parameter length for 'category'
