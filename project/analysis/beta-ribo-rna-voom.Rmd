@@ -103,7 +103,7 @@ contrast_fit$contrast
 Distribution of the p-values for the interaction effect.
 
 ```{r}
-hist(contrast_fit$F.p.value, main = "Interaction p-value")
+hist(contrast_fit$F.p.value, main = "Interaction p-value", breaks = 100)
 ```
 
 
@@ -111,7 +111,7 @@ False discovery rate
 
 ```{r}
 qvals <- qvalue(contrast_fit$F.p.value)$qvalue
-sum(qvals < .01)
+sum(qvals < .05)
 ```
 
 
