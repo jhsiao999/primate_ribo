@@ -1,0 +1,127 @@
+---
+title: "RNA vs. Ribo divergence, regression coefficients, voom adjusted"
+author: "Joyce Hsiao"
+date: "2015-10-06"
+output: 
+  html_document:
+    toc: true
+---
+
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+Apply the voom method to weight data of each gene, in order to address heterogeneity of variances.
+
+
+Set up
+======
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+library(qvalue)
+library(limma)
+library(Humanzee)
+```
+
+
+Compute voom weights
+==========================
+
+`eSetRRP.RP` includes the 3,188 genes that are quantified in all three molecular phenotypes.
+
+```{r, eval = TRUE}
+load(file.path(rdadir,"eSetRRP.rda"))
+load(file.path(rdadir,"datasub.rda"))
+
+genes_sub <- fData(eSetRRP.RP.Q.log2)$ENSGID
+
+eSet_sub <- eSetNone[ which(fData(eSetNone)$ENSGID %in% genes_sub), 
+                      eSetNone$species != "rhesus"]
+
+voom_fit <- 
+  Humanzee::voom_NA(counts = exprs(eSet_sub),
+                   lib.size = colSums(exprs(eSet_sub), na.rm = TRUE), 
+                   design = model.matrix( ~ as.factor(seqData)*as.factor(species), 
+                                          data = pData(eSet_sub)), 
+                   normalize.method = "quantile")
+names(voom_fit)
+```
+
+
+Weighted linear models
+======================
+
+Human vs. Chimp
+
+```{r}
+load(file.path(rdadir, "eSetRRP.rda"))
+
+eSet_human_chimp <- eSetRRP.RP.Q.log2[ , 
+          eSetRRP.RP.Q.log2$seqData != "protein" & eSetRRP.RP.Q.log2$species != "rhesus"]
+
+fit <- lmFit(voom_fit$E, 
+             design = model.matrix( ~ as.factor(seqData)*as.factor(species), 
+                                          data = pData(eSet_sub)),
+             weights = voom_fit$weights)
+
+contrast_fit <- contrasts.fit(fit, contrasts = cbind(c(0, 0, 0, 1)) )
+
+# Empirical bayes 
+contrast_fit <- eBayes(contrast_fit)
+
+# Contrast test of only the interaction effect
+contrast_fit$contrast
+```
+
+
+Distribution of the p-values for the interaction effect.
+
+```{r}
+hist(contrast_fit$F.p.value, main = "Interaction p-value")
+```
+
+
+False discovery rate
+
+```{r}
+qvals <- qvalue(contrast_fit$F.p.value)$qvalue
+sum(qvals < .01)
+```
+
+
+
+
+Session information
+========================
+
+
+```{r}
+sessionInfo()
+```
+

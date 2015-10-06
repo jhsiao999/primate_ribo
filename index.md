@@ -7,7 +7,7 @@ tagline:
 #### Home
   * [Preprocessing](#preprocessing)
   * [Differential expression analysis](#differential-expression)
-  * [Differential divergence analysis](#differential-divergence)
+  * [Differential divergence analysis](#ribo-rna-divergence)
   * [Buffering](#buffering)
   * [Attenuation/enhancement of divergence](#attenuation-divergence)
   * [Manuscript figures](#manuscript)
@@ -31,18 +31,19 @@ tagline:
 
 ---
 
-#### Differential divergence analysis <a id = 'differential-divergence'></a>
+#### RNA vs. Ribo divergence <a id = 'ribo-rna-divergence'></a>
 
-* RNA vs. Ribo divergence, vary variances by technology (translation efficiency comparisons)
+* Vary variances by technology (translation efficiency comparisons)
     * [Of 3,188 genes quantified in all three phenotypes](project/analysis/compare-ribo-rna-divergence.html)
+        * [Permtuation-based test](project/analysis/permutation-interaction-test.html)
     * [Of 8,572 genes quantified in RNA and Ribo](project/analysis/compare-ribo-rna-quantified-in-sequencing.html)
 
-* p-value distribution of the LR statistics
-    * [Permtuation-based test](project/analysis/permutation-interaction-test.html)
-    * [Ash]
-
-* RNA vs. Ribo divergence, vary variances by species and technology (translation efficiency comparisons)
+* Vary variances by species and technology (translation efficiency comparisons)
     * [Of 3,188 genes quantified in all three phenotypes](project/analysis/compare-ribo-rna-species-variance.html)
+
+* What's up with the LR statistic p-value distribution
+    * [LRT vs. t-test p-values](project/analysis/beta-ribo-rna.html)
+    * [ASH](project/analysis/ash-ribo-rna.html)
 
 ---
 

@@ -1,0 +1,225 @@
+---
+title: "RNA vs. Ribo divergence, regression coefficients"
+author: "Joyce Hsiao"
+date: "2015-10-05"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r run_date, results='asis', echo=FALSE}
+#last_update = format(Sys.time(), "(<time>%Y-%m-%d</time>)")
+last_update <- Sys.time()
+cat(paste("Last updated:", last_update))
+```
+
+Compute regression coefficients and compare the ranking with the likelihood ratio statistics.
+
+Set up
+======
+
+```{r knitr_settings, include=FALSE, echo=FALSE}
+library(knitr)
+opts_knit$set(progress = TRUE, verbose = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, eval = TRUE, 
+               echo = TRUE,
+              bootstrap.panel = TRUE, 
+              bootstrap.show.code = TRUE)
+```
+
+
+```{r load_packages}
+library(Biobase)
+
+## Set working directories 
+dir <- "../"
+figdir <- file.path(dir,"figures")
+rdadir <- file.path(dir,"rdas")
+datadir <- file.path(dir, "data")
+
+## Use broman package for colors
+require(broman)
+crayon <- brocolors("crayons")
+
+## Load customized packages
+require(devtools)
+require(Humanzee)
+
+library(qvalue)
+```
+
+
+
+Helper functions
+================
+
+Generate regression coefficients and their standard errors.
+
+```{r}
+interact2way_coef <- function (eSet) 
+{
+    fNames <- featureNames(eSet)
+    require(nlme)
+    gls.res <- lapply(1:length(fNames), function(i) {
+        mat1 <- eSet[featureNames(eSet) == fNames[i], ]
+        mat1aov.temp <- data.frame(cov = c(t(exprs(mat1))), seqData = mat1$seqData, 
+            species = mat1$species, celline = mat1$celline)
+        mat1aov.temp$species <- as.factor(mat1aov.temp$species)
+        mat1aov.temp$seqData <- as.factor(mat1aov.temp$seqData)
+            fit_interact_try <- tryCatch(fit_interact <- gls(cov ~ 
+                species * seqData, weights = varIdent(form = ~1 | 
+                seqData), data = mat1aov.temp, na.action = na.omit), 
+                condition = function(c) c)
+                  coef_table <- summary(fit_interact_try)$tTable
+                  return(coef_table)
+    })
+    names(gls.res) <- fNames
+    return(gls.res)
+}
+```
+
+
+
+Betas p-value distribution
+==========================
+
+Ash works with regression coefficients. We fit the interaction model of two main effects of species and technology and then extract the regression coefficients.
+
+`eSetRRP.RP.Q.log2` includes log2 quantile-normalized RPKM values.
+
+```{r, eval = FALSE}
+load(file.path(rdadir,"eSetRRP.rda"))
+
+# Human vs. Chimp
+eSet_human_chimp <- eSetRRP.RP.Q.log2[ , 
+          eSetRRP.RP.Q.log2$seqData != "protein" & eSetRRP.RP.Q.log2$species != "rhesus"]
+riborna_coef_human_chimp <- interact2way_coef(eSet_human_chimp)
+
+# Human vs. Rhesus
+eSet_human_rhesus <- eSetRRP.RP.Q.log2[ , 
+          eSetRRP.RP.Q.log2$seqData != "protein" & eSetRRP.RP.Q.log2$species != "chimp"]
+riborna_coef_human_rhesus <- interact2way_coef(eSet_human_rhesus)
+
+# Chimp vs. Rhesus
+eSet_chimp_rhesus <- eSetRRP.RP.Q.log2[ , 
+          eSetRRP.RP.Q.log2$seqData != "protein" & eSetRRP.RP.Q.log2$species != "human"]
+riborna_coef_chimp_rhesus <- interact2way_coef(eSet_chimp_rhesus)
+
+save(riborna_coef_human_chimp,
+     riborna_coef_human_rhesus,
+     riborna_coef_chimp_rhesus, file = file.path(rdadir,"riborna_coef.rda"))
+```
+
+
+Distribution of the p-values.
+
+```{r}
+load(file = file.path(rdadir, "riborna_coef.rda") )
+
+pvals_human_chimp <- sapply(riborna_coef_human_chimp, function(per_gene) {
+                            per_gene[4,4]
+                      })
+hist(pvals_human_chimp, main = "Human vs. Chimp: p-values", xlab = "p-values")
+
+
+pvals_human_rhesus <- sapply(riborna_coef_human_rhesus, function(per_gene) {
+                            per_gene[4,4]
+                      })
+hist(pvals_human_rhesus, main = "Human vs. Rhesus: p-values", xlab = "p-values")
+
+
+pvals_chimp_rhesus <- sapply(riborna_coef_chimp_rhesus, function(per_gene) {
+                            per_gene[4,4]
+                      })
+hist(pvals_chimp_rhesus, main = "Chimp vs. Rhesus: p-values", xlab = "p-values")
+```
+
+
+
+LR vs. beta p-values
+====================
+
+*Human vs. Chimp
+
+```{r}
+load(file.path(rdadir, "TEnew.rda"))
+
+plot(x = res.riborna$int.pval,
+     y = pvals_human_chimp, xlab = "LR statistic p-values", ylab = "beta p-values",
+     xlim = c(0, 1), ylim = c(0, 1))
+abline(0, 1, col = "red")
+```
+
+
+
+*Human vs. Rhesus
+
+```{r}
+load(file.path(rdadir, "TE_other_interspecies.rda"))
+
+plot(x = res.riborna_human_rhesus$int.pval,
+     y = pvals_human_rhesus, xlab = "LR statistic p-values", ylab = "beta p-values",
+     xlim = c(0, 1), ylim = c(0, 1))
+abline(0, 1, col = "red")
+```
+
+
+
+*Chimp vs. Rhesus
+
+```{r}
+load(file.path(rdadir, "TE_other_interspecies.rda"))
+
+plot(x = res.riborna_chimp_rhesus$int.pval,
+     y = pvals_chimp_rhesus, xlab = "LR statistic p-values", ylab = "beta p-values",
+     xlim = c(0, 1), ylim = c(0, 1))
+abline(0, 1, col = "red")
+```
+
+
+Venn diagrams
+=============
+
+*LRT
+
+```{r}
+library(gplots)
+
+kable(data.frame(human_chimp = sum(res.riborna$int.qval < .01),
+                 human_rhesus = sum(res.riborna_human_rhesus$int.qval < .01),
+                 chimp_rhesus = sum(res.riborna_chimp_rhesus$int.qval < .01) ))
+
+venn(data.frame(human_chimp = res.riborna$int.qval < .01,
+                human_rhesus = res.riborna_human_rhesus$int.qval < .01,
+                chimp_rhesus = res.riborna_chimp_rhesus$int.qval < .01) )
+```
+
+
+
+*Betas
+
+```{r}
+library(gplots)
+
+qvals_human_chimp <- qvalue(pvals_human_chimp)$qvalue
+qvals_human_rhesus <- qvalue(pvals_human_rhesus)$qvalue
+qvals_chimp_rhesus <- qvalue(pvals_chimp_rhesus)$qvalue
+
+kable(data.frame(human_chimp = sum(qvals_human_chimp < .01),
+                 human_rhesus = sum(qvals_human_rhesus < .01),
+                 chimp_rhesus = sum(qvals_chimp_rhesus < .01) ))
+
+venn(data.frame(human_chimp = qvals_human_chimp < .01,
+                human_rhesus = qvals_human_rhesus < .01,
+                chimp_rhesus = qvals_chimp_rhesus < .01) )
+```
+
+
+Session information
+========================
+
+
+```{r}
+sessionInfo()
+```
+
