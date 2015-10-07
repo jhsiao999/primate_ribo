@@ -119,19 +119,19 @@ load(file = file.path(rdadir, "riborna_coef.rda") )
 pvals_human_chimp <- sapply(riborna_coef_human_chimp, function(per_gene) {
                             per_gene[4,4]
                       })
-hist(pvals_human_chimp, main = "Human vs. Chimp: p-values", xlab = "p-values")
+hist(pvals_human_chimp, main = "Human vs. Chimp: p-values", xlab = "p-values", breaks = 100)
 
 
 pvals_human_rhesus <- sapply(riborna_coef_human_rhesus, function(per_gene) {
                             per_gene[4,4]
                       })
-hist(pvals_human_rhesus, main = "Human vs. Rhesus: p-values", xlab = "p-values")
+hist(pvals_human_rhesus, main = "Human vs. Rhesus: p-values", xlab = "p-values", breaks = 100)
 
 
 pvals_chimp_rhesus <- sapply(riborna_coef_chimp_rhesus, function(per_gene) {
                             per_gene[4,4]
                       })
-hist(pvals_chimp_rhesus, main = "Chimp vs. Rhesus: p-values", xlab = "p-values")
+hist(pvals_chimp_rhesus, main = "Chimp vs. Rhesus: p-values", xlab = "p-values", breaks = 100)
 ```
 
 
@@ -144,8 +144,13 @@ LR vs. beta p-values
 ```{r}
 load(file.path(rdadir, "TEnew.rda"))
 
+plot(x = -log10(res.riborna$int.pval),
+     y = -log10(pvals_human_chimp), xlab = "LR statistic -log10 p-values", ylab = "beta -log10 p-values"
+     )
+abline(0, 1, col = "red")
+
 plot(x = rank(res.riborna$int.pval),
-     y = rank(pvals_human_chimp), xlab = "LR statistic p-values", ylab = "beta p-values",xlim = c(0,1000), ylim = c(0,1000)
+     y = rank(pvals_human_chimp), xlab = "LR statistic p-values rank", ylab = "beta p-values rank",xlim = c(0,1000), ylim = c(0,1000)
      )
 abline(0, 1, col = "red")
 
@@ -159,9 +164,8 @@ cor(res.riborna$int.pval,pvals_human_chimp, method = "spearman")
 ```{r}
 load(file.path(rdadir, "TE_other_interspecies.rda"))
 
-plot(x = res.riborna_human_rhesus$int.pval,
-     y = pvals_human_rhesus, xlab = "LR statistic p-values", ylab = "beta p-values",
-     xlim = c(0, 1), ylim = c(0, 1))
+plot(x = -log10(res.riborna_human_rhesus$int.pval),
+     y = -log10(pvals_human_rhesus), xlab = "LR statistic -log10 p-values", ylab = "beta -log10 p-values")
 abline(0, 1, col = "red")
 ```
 
@@ -172,9 +176,8 @@ abline(0, 1, col = "red")
 ```{r}
 load(file.path(rdadir, "TE_other_interspecies.rda"))
 
-plot(x = res.riborna_chimp_rhesus$int.pval,
-     y = pvals_chimp_rhesus, xlab = "LR statistic p-values", ylab = "beta p-values",
-     xlim = c(0, 1), ylim = c(0, 1))
+plot(x = -log10(res.riborna_chimp_rhesus$int.pval),
+     y = -log10(pvals_chimp_rhesus), xlab = "LR statistic -log10 p-values", ylab = "beta -log10 p-values")
 abline(0, 1, col = "red")
 ```
 
