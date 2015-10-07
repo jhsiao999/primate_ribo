@@ -144,10 +144,12 @@ LR vs. beta p-values
 ```{r}
 load(file.path(rdadir, "TEnew.rda"))
 
-plot(x = res.riborna$int.pval,
-     y = pvals_human_chimp, xlab = "LR statistic p-values", ylab = "beta p-values",
-     xlim = c(0, 1), ylim = c(0, 1))
+plot(x = rank(res.riborna$int.pval),
+     y = rank(pvals_human_chimp), xlab = "LR statistic p-values", ylab = "beta p-values",xlim = c(0,1000), ylim = c(0,1000)
+     )
 abline(0, 1, col = "red")
+
+cor(res.riborna$int.pval,pvals_human_chimp, method = "spearman")
 ```
 
 

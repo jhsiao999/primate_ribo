@@ -1,0 +1,399 @@
+---
+title: "YRI.buffered.variance"
+author: "Sidney Wang"
+date: "September 22, 2015"
+output: html_document
+---
+
+
+```{r}
+library("gdata")
+# load eQTL table, and buffer genelist
+#read.xls("~/Dropbox/work/Ribosome_profiling/Primate_comparison/Enrichment_analysis/battle_etal_cisQTL.xlsx", sheet=2)->eQTL
+load("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/genelist/genelist.rda")
+load("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental\ material/data/processed/rna_ribo_pro_rpkm_stand_quant.rda")
+
+# ID index for Human_Chimp PT buffered genes and nonbuffered
+which(eSetRRP.Q.DE@featureData@data$ENSGID %in% mat.buffer1$ENSGID) -> buffer.index
+```
+
+## variation in YRI RNA expression level 
+
+```{r, echo=FALSE}
+#############################################################################################################
+
+## figure S16 buffered gene YRI variance
+#############################################################################################################
+
+# load YRI expression data
+read.csv("~/Dropbox/work/Ribosome_profiling/Primate_comparison/Enrichment_analysis/battle_etal_RNA_logCPM_data.csv")->YRI.RNA.CPM
+#compare variance
+
+YRI.RNA.CPM[,80]->RNA.length
+(YRI.RNA.CPM[,2:76]-log2(RNA.length/1000))->YRI.RNA.logRPKM
+YRI.RNA.logRPKM$ENSG <-YRI.RNA.CPM$ENSG
+
+
+## quantile normalize
+#load limma
+library("limma")
+
+# quantile normalize without breaking ties
+YRI.RNA.logRPKM.QN <- normalizeQuantiles(YRI.RNA.logRPKM[,1:75])
+YRI.RNA.logRPKM.QN$ENSG<-YRI.RNA.logRPKM$ENSG
+#boxplot(YRI.RNA.logRPKM.QN[,1:75])
+
+#subset data by buffering index
+YRI.RNA.logRPKM.QN[which(YRI.RNA.logRPKM.QN$ENSG %in% eSetRRP.Q.DE@featureData@data$ENSGID[buffer.index]),]->buffered.RNA.logRPKM.QN
+YRI.RNA.logRPKM.QN[which(YRI.RNA.logRPKM.QN$ENSG %in% eSetRRP.Q.DE@featureData@data$ENSGID[-buffer.index]),]->nonbuffered.RNA.logRPKM.QN
+
+# compute SD for each gene and make boxplot
+apply(buffered.RNA.logRPKM.QN[,1:75],1,sd)->buffered.RNA.logRPKM.QN.sd
+apply(nonbuffered.RNA.logRPKM.QN[,1:75],1,sd)->nonbuffered.RNA.logRPKM.QN.sd
+
+wilcox.test(buffered.RNA.logRPKM.QN.sd, nonbuffered.RNA.logRPKM.QN.sd)
+
+#### Joyce's ploting code modified
+
+pdf(file.path("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental material/plots",
+              "H_C_Buffered_gene_YRI_mRNA_sd_box.pdf"),
+    width = 2.5, height = 2.5)
+# mar: margin of the figure (bottom, left, top, right)
+# mgp: distance between axis labels and axis
+par( mfrow = c(1, 1), mar = c(2.5, 2.7, 1.8, 0), mgp = c(.5, .3, 0) )
+
+# define color
+cols<-c("goldenrod1","grey90")
+# make boxplots
+# use the data of interests instead, e.g., boxplot(data_vector1, data_vector2,...)
+# change the y-axis limit if necesary
+boxplot(buffered.RNA.logRPKM.QN.sd, nonbuffered.RNA.logRPKM.QN.sd,
+        xlab ="", lwd = .7,
+        axes = F, col= cols, border = "black", notch = TRUE, outline = FALSE, ylim=c(0,0.8),
+        varwidth = TRUE, outpch = 1, outcex = .5) 
+# label the bars at the x-axis 
+# tck is the length of the ticks on the axis
+axis(1, tck = -.03, cex.axis = .6, lwd = .6, line = -.5,
+     at = 1:2, labels = c("Buffered","Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .6, lwd = .8, at = c(0,0.2, 0.4, 0.6, 0.8),
+     labels = c(0, 0.2, 0.4, 0.6, 0.8) )
+title(ylab = "standard deviation of mRNA levels", 
+      cex.lab = .7, line = 1.1)
+dev.off()
+
+####
+
+
+#boxplot(buffered.RNA.logRPKM.QN.sd, nonbuffered.RNA.logRPKM.QN.sd, outline=F, main="YRI RNA QN expression SD for buffered genes", ylab="standard deviation", notch=T)
+#axis(1, 1:2, labels=c("buffered","non-buffered"))
+
+#compute mean for each gene and make boxplot
+apply(buffered.RNA.logRPKM.QN[,1:75],1,mean)->buffered.RNA.logRPKM.QN.mean
+apply(nonbuffered.RNA.logRPKM.QN[,1:75],1,mean)->nonbuffered.RNA.logRPKM.QN.mean
+
+wilcox.test(buffered.RNA.logRPKM.QN.mean, nonbuffered.RNA.logRPKM.QN.mean)
+
+
+#### Joyce's ploting code modified
+
+pdf(file.path("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental material/plots",
+              "H_C_Buffered_gene_YRI_mRNA_mean_box.pdf"),
+    width = 2.5, height = 2.5)
+# mar: margin of the figure (bottom, left, top, right)
+# mgp: distance between axis labels and axis
+par( mfrow = c(1, 1), mar = c(2.5, 2.7, 1.8, 0), mgp = c(.5, .3, 0) )
+
+# define color
+cols<-c("goldenrod1","grey90")
+# make boxplots
+# use the data of interests instead, e.g., boxplot(data_vector1, data_vector2,...)
+# change the y-axis limit if necesary
+boxplot(buffered.RNA.logRPKM.QN.mean, nonbuffered.RNA.logRPKM.QN.mean,
+        xlab ="", lwd = .7,
+        axes = F, col= cols, border = "black", notch = TRUE, outline = FALSE, ylim=c(0,10),
+        varwidth = TRUE, outpch = 1, outcex = .5) 
+# label the bars at the x-axis 
+# tck is the length of the ticks on the axis
+axis(1, tck = -.03, cex.axis = .6, lwd = .6, line = -.5,
+     at = 1:2, labels = c("Buffered","Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .6, lwd = .8, at = c(2, 4, 6, 8),
+     labels = c(2, 4, 6, 8) )
+title(ylab = "mean mRNA levels", 
+      cex.lab = .7, line = 1.1)
+dev.off()
+
+####
+
+#boxplot(buffered.RNA.logRPKM.QN.mean, nonbuffered.RNA.logRPKM.QN.mean, outline=F,main="YRI RNA QN mean expression for buffered genes", ylab="log2 expression")
+#axis(1, 1:2, labels=c("buffered","non-buffered")) 
+
+#plot(density(buffered.RNA.logRPKM.QN.mean), main="YRI QN mean expression for PT buffered genes", xlab="log2 mean expression", ylim=c(0,0.3))
+#lines(density(nonbuffered.RNA.logRPKM.QN.mean), col="blue")
+#legend("topright", c("buffer","nonbuffer"), lty=1 ,col=c("black","blue"))
+
+
+```
+
+
+
+
+```{r, echo=FALSE}
+#############################################################################################################
+
+# figure 6c buffered gene YRI variance, mean expression matched
+#############################################################################################################
+
+## for subsampling, need to label the mean with the sd
+nonbuffered.RNA.logRPKM.QN.mean.sd<-cbind(nonbuffered.RNA.logRPKM.QN.mean, nonbuffered.RNA.logRPKM.QN.sd)
+nonbuffered.RNA.logRPKM.QN.mean.sd<-as.data.frame(nonbuffered.RNA.logRPKM.QN.mean.sd)
+## subsample to create distributions of the same mean before comparing variance
+
+hist(buffered.RNA.logRPKM.QN.mean, breaks=50, plot=FALSE)->buff.hist
+buff.hist$breaks -> exp.intervals
+buff.hist$density -> exp.intervals.prob
+
+nonbuffered.RNA.logRPKM.QN.mean.sd$prob <- 0
+for (i in 1:length(exp.intervals.prob)) {
+  which(exp.intervals[i] < nonbuffered.RNA.logRPKM.QN.mean.sd$nonbuffered.RNA.logRPKM.QN.mean & nonbuffered.RNA.logRPKM.QN.mean.sd$nonbuffered.RNA.logRPKM.QN.mean < exp.intervals[i+1])-> interval.index  
+  nonbuffered.RNA.logRPKM.QN.mean.sd$prob[interval.index] <- exp.intervals.prob[i]/length(interval.index)
+}
+
+#create index base on row number. (used row name, BAD idea, carry over from the original data frame)
+c(1:length(nonbuffered.RNA.logRPKM.QN.mean.sd[,1]))->nonbuffered.RNA.logRPKM.QN.mean.sd$index
+sample(nonbuffered.RNA.logRPKM.QN.mean.sd$index,size=500,replace=F, prob=nonbuffered.RNA.logRPKM.QN.mean.sd$prob)->nonbuffered.RNA.logRPKM.QN.sampling.index
+
+
+
+#YRI QN expression sd for PT buffered genes
+## subsample for 500 times
+pdf(file.path("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental material/plots",
+              "fig6c_density_HC_buff_genes_YRI_RNA_sd.pdf"),
+    width = 2.5, height = 2.5)
+par( mfrow = c(1, 1), mar = c(2.5, 2.7, 1.8, 0), mgp = c(.5, .3, 0) )
+plot(density(buffered.RNA.logRPKM.QN.sd), main="", xlab="",ylab="",axes = F ,ylim=c(0,4.5), col=rgb(0,0,0,0))
+
+
+nonbuffered.RNA.logRPKM.QN.sampling.index<-c()
+nonbuffered.RNA.logRPKM.QN.sampling.sd.median<-c()
+for (i in 1:500){ 
+  sample(nonbuffered.RNA.logRPKM.QN.mean.sd$index,size=500,replace=F, prob=nonbuffered.RNA.logRPKM.QN.mean.sd$prob)->nonbuffered.RNA.logRPKM.QN.sampling.index
+  #lines(density(nonbuffered.RNA.logRPKM.QN.mean.sd$nonbuffered.RNA.logRPKM.QN.sd[nonbuffered.RNA.logRPKM.QN.sampling.index]), col=rgb(0,0,0,0))
+  polygon(density(nonbuffered.RNA.logRPKM.QN.mean.sd$nonbuffered.RNA.logRPKM.QN.sd[nonbuffered.RNA.logRPKM.QN.sampling.index]), col=rgb(0.8,0.8,0.8,0.4), border=F)
+  nonbuffered.RNA.logRPKM.QN.sampling.sd.median[i]<-median(nonbuffered.RNA.logRPKM.QN.mean.sd$nonbuffered.RNA.logRPKM.QN.sd[nonbuffered.RNA.logRPKM.QN.sampling.index])
+}
+#lines(density(buffered.RNA.logRPKM.QN.sd), col=rgb(0,0,0,0))
+polygon(density(buffered.RNA.logRPKM.QN.sd), col=rgb(1,0.8,0), border=F)
+
+# label the bars at the x-axis 
+# tck is the length of the ticks on the axis
+axis(1, tck = -.03, cex.axis = .6, lwd = .8,
+     at = c(0, 0.2, 0.34, 0.39, 0.6, 0.8, 1, 1.2), labels = c(0, 0.2," "," ", 0.6, 0.8, 1, 1.2))
+axis(2, tck = -.03, cex.axis = .6, lwd = .8, 
+     at = c(0, 1, 2, 3, 4), labels = c(0, 1, 2, 3, 4) )
+title(ylab = "Density", cex.lab = .7, line = 1.1)
+
+
+#abline(v=nonbuffered.RNA.logRPKM.QN.sampling.sd.median, col=rgb(blue=0.7,red=0,green=0,alpha=0.01))
+#abline(v=min(nonbuffered.RNA.logRPKM.QN.sampling.sd.median), col="black")
+#abline(v=max(nonbuffered.RNA.logRPKM.QN.sampling.sd.median), col="black")
+legend("topright", c("Buffered","Background"), lty=1, lwd=3 ,col=c("goldenrod1","grey"),box.col=rgb(0,0,0,0), cex=0.5)
+dev.off()
+
+
+#### Joyce's ploting code modified
+
+pdf(file.path("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental material/plots",
+              "fig6c_box_HC_buff_genes_YRI_RNA_sd_median.pdf"),
+    width = 2.5, height = 2.5)
+# mar: margin of the figure (bottom, left, top, right)
+# mgp: distance between axis labels and axis
+par( mfrow = c(1, 1), mar = c(2.5, 2.7, 1.8, 0), mgp = c(.5, .3, 0) )
+
+# define color
+#cols<-c("goldenrod1","grey90")
+# make boxplots
+# use the data of interests instead, e.g., boxplot(data_vector1, data_vector2,...)
+# change the y-axis limit if necesary
+boxplot(nonbuffered.RNA.logRPKM.QN.sampling.sd.median, col=rgb(0.8,0.8,0.8),
+        xlab ="", lwd = .7,
+        axes = F, border = "black", ylim=c(0.34,0.4),
+        outpch = 1, outcex = .5) 
+points(1,median(buffered.RNA.logRPKM.QN.sd), col="orange", pch=16)
+# label the bars at the x-axis 
+# tck is the length of the ticks on the axis
+#axis(1, tck = -.03, cex.axis = .6, lwd = .6, line = -.5,
+#     at = 1:2, labels = c("Buffered","Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .6, lwd = .8, at = c(0.34, 0.35, 0.36, 0.37, 0.38, 0.39),
+     line= -2,labels = c(0.34, 0.35, 0.36, 0.37, 0.38, 0.39) )
+title(ylab = "standard deviation of log2 mRNA expression", 
+      cex.lab = .7, line = -1)
+dev.off()
+
+####
+
+#boxplot(nonbuffered.RNA.logRPKM.QN.sampling.sd.median, col=rgb(0.8,0.8,0.8))
+#points(1,median(buffered.RNA.logRPKM.QN.sd), col="orange", pch=16)
+
+#hist(nonbuffered.RNA.logRPKM.QN.sampling.sd.median, breaks=20)
+#abline(v=median(buffered.RNA.logRPKM.QN.sd), col="red")
+
+#plot(density(nonbuffered.RNA.logRPKM.QN.sampling.sd.median))
+#abline(v=median(buffered.RNA.logRPKM.QN.sd), col="red")
+
+#calculate probability (p value) for observing a random draw from the pool of nonbuffer sampling median that has a value equal to or smaller than median buffered sd 
+
+pnorm(median(buffered.RNA.logRPKM.QN.sd),mean=mean(nonbuffered.RNA.logRPKM.QN.sampling.sd.median),sd=sd(nonbuffered.RNA.logRPKM.QN.sampling.sd.median), lower.tail=F)
+
+#calculate empirical p value
+length(which(nonbuffered.RNA.logRPKM.QN.sampling.sd.median > median(buffered.RNA.logRPKM.QN.sd)))/length(nonbuffered.RNA.logRPKM.QN.sampling.sd.median)
+
+## mean
+#plot(density(buffered.RNA.logRPKM.QN.mean), main="YRI QN expression for PT buffered genes", xlab="log2 mean expression", ylim=c(0,0.4))
+#nonbuffered.RNA.logRPKM.QN.sampling.index<-c()
+#for (i in 1:500){ 
+#  sample(nonbuffered.RNA.logRPKM.QN.mean.sd$index,size=500,replace=F, prob=nonbuffered.RNA.logRPKM.QN.mean.sd$prob)->nonbuffered.RNA.logRPKM.QN.sampling.index
+#  lines(density(nonbuffered.RNA.logRPKM.QN.mean.sd$nonbuffered.RNA.logRPKM.QN.mean[nonbuffered.RNA.logRPKM.QN.sampling.index]), col="blue")
+#}
+#lines(density(buffered.RNA.logRPKM.QN.mean), col="red", lwd=3)
+#legend("topright", c("buffer","nonbuffer"), lty=1 ,col=c("red","blue"))
+
+```
+
+## YRI protein
+
+```{r echo=FALSE}
+#############################################################################################################
+
+## buffered gene YRI variance
+#############################################################################################################
+
+# load YRI expression data
+read.csv("~/Dropbox/work/Ribosome_profiling/Primate_comparison/Enrichment_analysis/battle_etal_protein_log2_SILAC_ratio_data.csv")->YRI.protein.log2.SILAC
+
+
+
+#compare variance
+
+## quantile normalize
+#load limma
+library("limma")
+
+# quantile normalize without breaking ties
+
+YRI.protein.log2.QN <- normalizeQuantiles(YRI.protein.log2.SILAC[,2:63])
+YRI.protein.log2.QN$ENSG<-YRI.protein.log2.SILAC$ENSG
+#boxplot(YRI.RNA.logRPKM.QN[,1:75])
+
+
+# visualize mean variance correlation on a scatter plot
+
+# subset data to the same set of 3188 genes analyzed in primate paper
+
+YRI.protein.log2.QN[which(YRI.protein.log2.QN$ENSG %in% eSetRRP.Q.DE@featureData@data$ENSGID),]->YRI.primate.expressed.protein.log2.QN
+
+# compute mean and sd for each gene
+
+apply(YRI.primate.expressed.protein.log2.QN[,1:62],1,mean,na.rm=T)->YRI.primate.expressed.protein.log2.QN.mean
+
+apply(YRI.primate.expressed.protein.log2.QN[,1:62],1,sd,na.rm=T)->YRI.primate.expressed.protein.log2.QN.sd
+
+
+# scatter plot mean vs variance
+
+smoothScatter(YRI.primate.expressed.protein.log2.QN.mean,YRI.primate.expressed.protein.log2.QN.sd, main="YRI log2(SILAC) mean vs sd", xlab = "mean", ylab = "sd", xlim = c(-2,2))
+
+plot(YRI.primate.expressed.protein.log2.QN.mean,YRI.primate.expressed.protein.log2.QN.sd, main="YRI log2(SILAC) mean vs sd", xlab = "mean", ylab = "sd",xlim = c(-2,2))
+
+
+
+#subset data by buffering index
+YRI.protein.log2.QN[which(YRI.protein.log2.QN$ENSG %in% eSetRRP.Q.DE@featureData@data$ENSGID[buffer.index]),]->buffered.protein.log2.QN
+YRI.protein.log2.QN[which(YRI.protein.log2.QN$ENSG %in% eSetRRP.Q.DE@featureData@data$ENSGID[-buffer.index]),]->nonbuffered.protein.log2.QN
+
+# compute SD for each gene and make boxplot
+apply(buffered.protein.log2.QN[,1:62],1,sd,na.rm=T)->buffered.protein.log2.QN.sd
+apply(nonbuffered.protein.log2.QN[,1:62],1,sd,na.rm=T)->nonbuffered.protein.log2.QN.sd
+
+wilcox.test(buffered.protein.log2.QN.sd, nonbuffered.protein.log2.QN.sd)
+
+#### Joyce's ploting code modified
+
+pdf(file.path("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental material/plots",
+              "H_C_Buffered_gene_YRI_log2_SILAC_protein_sd_box.pdf"),
+    width = 2.5, height = 2.5)
+# mar: margin of the figure (bottom, left, top, right)
+# mgp: distance between axis labels and axis
+par( mfrow = c(1, 1), mar = c(2.5, 2.7, 1.8, 0), mgp = c(.5, .3, 0) )
+
+# define color
+cols<-c("goldenrod1","grey90")
+# make boxplots
+# use the data of interests instead, e.g., boxplot(data_vector1, data_vector2,...)
+# change the y-axis limit if necesary
+boxplot(buffered.protein.log2.QN.sd, nonbuffered.protein.log2.QN.sd,
+        xlab ="", lwd = .7,
+        axes = F, col= cols, border = "black", notch = TRUE, outline = FALSE, ylim=c(0,0.6),
+        varwidth = TRUE, outpch = 1, outcex = .5) 
+# label the bars at the x-axis 
+# tck is the length of the ticks on the axis
+axis(1, tck = -.03, cex.axis = .6, lwd = .6, line = -.5,
+     at = 1:2, labels = c("Buffered","Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .6, lwd = .8, at = c(0,0.2, 0.4, 0.6),
+     labels = c(0, 0.2, 0.4, 0.6) )
+title(ylab = "sd of protein levels (log2 SILAC ratio)", 
+      cex.lab = .7, line = 1.1)
+dev.off()
+
+####
+
+
+#boxplot(buffered.RNA.logRPKM.QN.sd, nonbuffered.RNA.logRPKM.QN.sd, outline=F, main="YRI RNA QN expression SD for buffered genes", ylab="standard deviation", notch=T)
+#axis(1, 1:2, labels=c("buffered","non-buffered"))
+
+#compute mean for each gene and make boxplot
+apply(buffered.protein.log2.QN[,1:62],1,mean, na.rm=T)->buffered.protein.log2.QN.mean
+apply(nonbuffered.protein.log2.QN[,1:62],1,mean, na.rm=T)->nonbuffered.protein.log2.QN.mean
+
+wilcox.test(buffered.protein.log2.QN.mean, nonbuffered.protein.log2.QN.mean)
+
+
+#### Joyce's ploting code modified
+
+pdf(file.path("~/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/supplemental material/plots",
+              "H_C_Buffered_gene_YRI_log2_SILAC_protein_mean_box.pdf"),
+    width = 2.5, height = 2.5)
+# mar: margin of the figure (bottom, left, top, right)
+# mgp: distance between axis labels and axis
+par( mfrow = c(1, 1), mar = c(2.5, 2.7, 1.8, 0), mgp = c(.5, .3, 0) )
+
+# define color
+cols<-c("goldenrod1","grey90")
+# make boxplots
+# use the data of interests instead, e.g., boxplot(data_vector1, data_vector2,...)
+# change the y-axis limit if necesary
+boxplot(buffered.protein.log2.QN.mean, nonbuffered.protein.log2.QN.mean,
+        xlab ="", lwd = .7,
+        axes = F, col= cols, border = "black", notch = TRUE, outline = FALSE, ylim=c(-0.6,0.6),
+        varwidth = TRUE, outpch = 1, outcex = .5) 
+# label the bars at the x-axis 
+# tck is the length of the ticks on the axis
+axis(1, tck = -.03, cex.axis = .6, lwd = .6, line = -.5,
+     at = 1:2, labels = c("Buffered","Background"), col= "white")
+axis(2, tck = -.03, cex.axis = .6, lwd = .8, at = c(-0.6,-0.3, 0, 0.3, 0.6),
+     labels = c(-0.6,-0.3, 0, 0.3, 0.6) )
+title(ylab = "mean protein levels (log2 SILAC ratio)", 
+      cex.lab = .7, line = 1.1)
+dev.off()
+
+####
+
+#boxplot(buffered.RNA.logRPKM.QN.mean, nonbuffered.RNA.logRPKM.QN.mean, outline=F,main="YRI RNA QN mean expression for buffered genes", ylab="log2 expression")
+#axis(1, 1:2, labels=c("buffered","non-buffered")) 
+
+#plot(density(buffered.RNA.logRPKM.QN.mean), main="YRI QN mean expression for PT buffered genes", xlab="log2 mean expression", ylim=c(0,0.3))
+#lines(density(nonbuffered.RNA.logRPKM.QN.mean), col="blue")
+#legend("topright", c("buffer","nonbuffer"), lty=1 ,col=c("black","blue"))
+
+
+```
+
