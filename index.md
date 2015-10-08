@@ -12,7 +12,7 @@ tagline:
   * [Attenuation/enhancement of divergence](#attenuation-divergence)
   * [Manuscript figures](#manuscript)
 
-**Last updated:** 2015-10-05 
+**Last updated:** 2015-10-08 
 
 ---
 
