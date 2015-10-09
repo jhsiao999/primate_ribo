@@ -85,64 +85,173 @@ CV.TE.R <- SD.TE.R - mean.TE.R
 CV.TE.C <- SD.TE.C - mean.TE.C
 ```
 
+
+make dataframe for ggplot
+
+```{r}
+
+msc.HCR <- melt(as.data.frame(cbind(mean.rna.H,mean.rna.R,mean.rna.C,mean.ribo.H,mean.ribo.R,mean.ribo.C,mean.TE.H,mean.TE.R,mean.TE.C,SD.rna.H,SD.rna.R,SD.rna.C,SD.ribo.H,SD.ribo.R,SD.ribo.C,SD.TE.H,SD.TE.R,SD.TE.C,CV.rna.H,CV.rna.R,CV.rna.C,CV.ribo.H,CV.ribo.R,CV.ribo.C,CV.TE.H,CV.TE.R,CV.TE.C)))
+
+```
+
 plot sd across data type
 
 ```{r, echo=FALSE}
 
+msc.HCR %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3) +labs(title="RNA sd by species", x = "sd")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
 
 
-SD.HCR <- melt(as.data.frame(cbind(SD.rna.H,SD.rna.R,SD.rna.C,SD.ribo.H,SD.ribo.R,SD.ribo.C)))
-#boxplot(as.data.frame(cbind(SD.rna.H,SD.rna.R,SD.rna.C,SD.ribo.H,SD.ribo.R,SD.ribo.C)), outline=F)
+msc.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="ribo sd by species", x = "sd")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
 
-SD.HCR %>% filter(grepl(variable,pattern = "rna")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3) +labs(title="RNA sd by species", x = "sd")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
-
-
-SD.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="ribo sd by species", x = "sd")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="Translation efficeincy sd by species", x = "sd")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
 
 
-#SD.HCR %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(group=variable, fill=variable), notch=TRUE)
+msc.HCR %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="RNA sd by species", y = "sd", x="species")
 
-SD.HCR %>% filter(grepl(variable,pattern = "rna")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="RNA sd by species", y = "sd", x="species")
+msc.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo sd by species", y = "sd", x="species")
 
-SD.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo sd by species", y = "sd", x="species")
+msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="translation efficiency sd by species", y = "sd", x="species")
 
+
+```
+
+
+plot cv
+
+```{r, echo=FALSE}
+
+msc.HCR %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "CV")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3) +labs(title="RNA CV by species", x = "CV")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+
+
+msc.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "CV")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="ribo CV by species", x = "CV")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+
+msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "CV")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="Translation efficeincy CV by species", x = "CV")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+
+
+msc.HCR %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "CV")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="RNA CV by species", y = "CV", x="species")
+
+msc.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "CV")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo CV by species", y = "CV", x="species")
+
+msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "CV")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="translation efficiency CV by species", y = "CV", x="species")
+
+
+```
+
+
+plot mean
+
+```{r, echo=FALSE}
+
+msc.HCR %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "mean")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3) +labs(title="RNA mean by species", x = "mean")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+
+
+msc.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "mean")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="ribo mean by species", x = "mean")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+
+msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "mean")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="Translation efficeincy mean by species", x = "mean")+scale_fill_discrete(name="species",labels =c("Human","Rhesus","Chimp"))
+
+
+msc.HCR %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "mean")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="RNA mean by species", y = "mean", x="species")
+
+msc.HCR %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "mean")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo mean by species", y = "mean", x="species")
+
+msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "mean")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable),notch=TRUE)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="translation efficiency mean by species", y = "mean", x="species")
 
 
 ```
 
 
 
-plot sd by expression level and effect size
+plot sd by effect size (H/C fold change)
 
 ```{r}
 
-SD.HCR.RNA <- melt(as.data.frame(cbind(SD.rna.H,SD.rna.R,SD.rna.C)))
-SD.HCR.ribo <- melt(as.data.frame(cbind(SD.ribo.H,SD.ribo.R,SD.ribo.C)))
-
+#ribo
 HC.fold.change.ribo <-  mean.ribo.H - mean.ribo.C
-HC.fold.change.rna <- mean.rna.H - mean.rna.C
+HC.ribo.effect.cat<-cut(abs(HC.fold.change.ribo),breaks = c(0,0.01,0.1,1,10))
 
-mean.level.ribo <- cbind(mean.ribo.H,mean.ribo.R,mean.ribo.C)
-mean.level.rna <- cbind(mean.rna.H,mean.rna.R,mean.rna.C)
+levels(HC.ribo.effect.cat)<-c(paste("1~",2^0.01),paste(2^0.01,"~",2^0.1),paste(2^0.1,"~",2),paste(2,"~"))
+#HC.ribo.effect.cat<-cut(log10(abs(HC.fold.change.ribo)),breaks = 9)
 
+msc.HCR.temp <- msc.HCR
 
-HCR.ribo.expr.cat<-cut(apply(mean.level.ribo, 1, mean),breaks = 10)
-HC.ribo.effect.cat<-cut(abs(HC.fold.change.ribo),breaks = 10)
-HC.ribo.effect.cat<-cut(abs(HC.fold.change.ribo),breaks = c(0,0.002,0.005,0.01,0.02,0.03,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,2,4,10))
-#SD.HCR.ribo<-as.data.frame(cbind(SD.HCR.ribo,as.numeric(HC.ribo.effect.cat)))
-SD.HCR.ribo<-as.data.frame(cbind(SD.HCR.ribo,HC.ribo.effect.cat,HCR.ribo.expr.cat))
-names(SD.HCR.ribo)[3:4] <-c("eff.cat","expr.cat")
-
-SD.HCR.ribo %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(group=variable, colour=variable, fill=variable)) + facet_wrap(~ eff.cat)
-
-SD.HCR.ribo %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(group=variable, colour=variable, fill=variable)) + facet_wrap(~ expr.cat)
+msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HC.ribo.effect.cat))
 
 
+msc.HCR.temp %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HC.ribo.effect.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo sd by species by H/C fold change", y = "sd", x="species")
 
 
+# rna
+HC.fold.change.rna <-  mean.rna.H - mean.rna.C
+HC.rna.effect.cat<-cut(abs(HC.fold.change.rna),breaks = c(0,0.01,0.1,1,10))
+
+levels(HC.rna.effect.cat)<-c(paste("1~",2^0.01),paste(2^0.01,"~",2^0.1),paste(2^0.1,"~",2),paste(2,"~"))
+#HC.rna.effect.cat<-cut(log10(abs(HC.fold.change.rna)),breaks = 9)
+
+msc.HCR.temp <- msc.HCR
+
+msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HC.rna.effect.cat))
 
 
+msc.HCR.temp %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HC.rna.effect.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="rna sd by species by H/C fold change", y = "sd", x="species")
 
+
+# TE
+
+HC.fold.change.TE <-  mean.TE.H - mean.TE.C
+HC.TE.effect.cat<-cut(abs(HC.fold.change.TE),breaks = c(0,0.01,0.1,1,10))
+
+levels(HC.TE.effect.cat)<-c(paste("1~",2^0.01),paste(2^0.01,"~",2^0.1),paste(2^0.1,"~",2),paste(2,"~"))
+#HC.TE.effect.cat<-cut(log10(abs(HC.fold.change.TE)),breaks = 9)
+
+msc.HCR.temp <- msc.HCR
+
+msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HC.TE.effect.cat))
+
+
+msc.HCR.temp %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HC.TE.effect.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="TE sd by species by H/C fold change", y = "sd", x="species")
 
 
 ```
+
+plot sd by expression level
+
+```{r}
+#ribo
+mean.level.ribo <- cbind(mean.ribo.H,mean.ribo.R,mean.ribo.C)
+HCR.ribo.expr.cat<-cut(apply(mean.level.ribo, 1, mean),breaks = 9)
+msc.HCR.temp <- msc.HCR
+
+msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HCR.ribo.expr.cat))
+
+
+msc.HCR.temp %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HCR.ribo.expr.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo sd by species by expression level", y = "sd", x="species")
+
+
+# rna
+
+mean.level.rna <- cbind(mean.rna.H,mean.rna.R,mean.rna.C)
+HCR.rna.expr.cat<-cut(apply(mean.level.rna, 1, mean),breaks = 9)
+
+
+msc.HCR.temp <- msc.HCR
+
+msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HCR.rna.expr.cat))
+
+
+msc.HCR.temp %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HCR.rna.expr.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="rna sd by species by expression level", y = "sd", x="species")
+
+
+# TE
+
+mean.level.TE <- cbind(mean.TE.H,mean.TE.R,mean.TE.C)
+HCR.TE.expr.cat<-cut(apply(mean.level.TE, 1, mean),breaks = 9)
+
+msc.HCR.temp <- msc.HCR
+
+msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HCR.TE.expr.cat))
+
+msc.HCR.temp %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HCR.TE.expr.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="TE sd by species by expression level", y = "sd", x="species")
+
+
+```
+
