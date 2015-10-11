@@ -2,7 +2,10 @@
 title: "CV_SD_mean_each_data_type"
 author: "Sidney Wang"
 date: "October 8, 2015"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    number_sections: true
 ---
 
 load libraries 
@@ -94,7 +97,7 @@ msc.HCR <- melt(as.data.frame(cbind(mean.rna.H,mean.rna.R,mean.rna.C,mean.ribo.H
 
 ```
 
-plot sd across data type
+## sd across data type
 
 ```{r, echo=FALSE}
 
@@ -116,7 +119,7 @@ msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pat
 ```
 
 
-plot cv
+## cv 
 
 ```{r, echo=FALSE}
 
@@ -138,7 +141,7 @@ msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pat
 ```
 
 
-plot mean
+## mean
 
 ```{r, echo=FALSE}
 
@@ -161,7 +164,7 @@ msc.HCR %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pat
 
 
 
-plot sd by effect size (H/C fold change)
+## sd by effect size (H/C fold change)
 
 ```{r}
 
@@ -213,15 +216,17 @@ msc.HCR.temp %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variabl
 
 ```
 
-plot sd by expression level
+## sd by expression level
 
 ```{r}
 #ribo
 mean.level.ribo <- cbind(mean.ribo.H,mean.ribo.R,mean.ribo.C)
-HCR.ribo.expr.cat<-cut(apply(mean.level.ribo, 1, mean),breaks = 9)
+mean.level.ribo <- apply(mean.level.ribo, 1, mean)
+HCR.ribo.expr.cat<-cut(mean.level.ribo,breaks = summary(mean.level.ribo))
 msc.HCR.temp <- msc.HCR
 
 msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HCR.ribo.expr.cat))
+msc.HCR.temp<-msc.HCR.temp[!is.na(msc.HCR.temp$HCR.ribo.expr.cat),]
 
 
 msc.HCR.temp %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HCR.ribo.expr.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="ribo sd by species by expression level", y = "sd", x="species")
@@ -230,13 +235,14 @@ msc.HCR.temp %>% filter(grepl(variable,pattern = "ribo")) %>% filter(grepl(varia
 # rna
 
 mean.level.rna <- cbind(mean.rna.H,mean.rna.R,mean.rna.C)
-HCR.rna.expr.cat<-cut(apply(mean.level.rna, 1, mean),breaks = 9)
+mean.level.rna <- apply(mean.level.rna, 1, mean)
+HCR.rna.expr.cat<-cut(mean.level.rna,breaks = summary(mean.level.rna))
 
 
 msc.HCR.temp <- msc.HCR
 
 msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HCR.rna.expr.cat))
-
+msc.HCR.temp<-msc.HCR.temp[!is.na(msc.HCR.temp$HCR.rna.expr.cat),]
 
 msc.HCR.temp %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HCR.rna.expr.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="rna sd by species by expression level", y = "sd", x="species")
 
@@ -244,11 +250,14 @@ msc.HCR.temp %>% filter(grepl(variable,pattern = "rna")) %>% filter(grepl(variab
 # TE
 
 mean.level.TE <- cbind(mean.TE.H,mean.TE.R,mean.TE.C)
-HCR.TE.expr.cat<-cut(apply(mean.level.TE, 1, mean),breaks = 9)
+mean.level.TE <- apply(mean.level.TE, 1, mean)
+HCR.TE.expr.cat<-cut(mean.level.TE,breaks = summary(mean.level.TE),include.lowest=T)
 
 msc.HCR.temp <- msc.HCR
 
 msc.HCR.temp<-as.data.frame(cbind(msc.HCR,HCR.TE.expr.cat))
+msc.HCR.temp<-msc.HCR.temp[!is.na(msc.HCR.temp$HCR.TE.expr.cat),]
+
 
 msc.HCR.temp %>% filter(grepl(variable,pattern = "TE")) %>% filter(grepl(variable,pattern = "SD")) %>% ggplot(aes(y=value, x=variable)) + geom_boxplot(aes(fill=variable)) + facet_wrap(~ HCR.TE.expr.cat)+scale_fill_discrete(guide_legend(title="species"), labels =c("Human","Rhesus","Chimp"))+labs(title="TE sd by species by expression level", y = "sd", x="species")
 
