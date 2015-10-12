@@ -220,6 +220,17 @@ venn(data.frame(human_chimp = qvals_human_chimp < .01,
 ```
 
 
+Distribution of the q-values.
+
+```{r}
+hist(qvals_human_chimp, main = "Human vs. Chimp: q-values", xlab = "q-values", breaks = 100)
+
+hist(qvals_human_rhesus, main = "Human vs. Rhesus: q-values", xlab = "q-values", breaks = 100)
+
+hist(qvals_chimp_rhesus, main = "Chimp vs. Rhesus: q-values", xlab = "q-values", breaks = 100)
+```
+
+
 Session information
 ========================
 
