@@ -1,0 +1,178 @@
+---
+title: "correlation between species and data type"
+author: "Sidney Wang"
+date: "October 11, 2015"
+output: html_document
+---
+
+load libraries 
+
+```{r}
+library("reshape2", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+library("ggplot2", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+library("dplyr", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+
+```
+
+
+load data and extract data from eSet
+
+```{r}
+library("Biobase")
+load("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/data/rdas/eSetRRP.rda")
+
+rhesus.log2ribo<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species == "rhesus" & eSetRRP.RP.Q.log2$seqData == "ribo"])
+rhesus.log2rna<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species == "rhesus" & eSetRRP.RP.Q.log2$seqData == "rna"])
+
+chimp.log2ribo<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species == "chimp" & eSetRRP.RP.Q.log2$seqData == "ribo"])
+chimp.log2rna<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species == "chimp" & eSetRRP.RP.Q.log2$seqData == "rna"])
+
+human.log2ribo<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species == "human" & eSetRRP.RP.Q.log2$seqData == "ribo"])              
+human.log2rna<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$species == "human" & eSetRRP.RP.Q.log2$seqData == "rna"])                      
+                      
+rhesus.log2TE <- rhesus.log2ribo-rhesus.log2rna
+
+chimp.log2TE <- chimp.log2ribo-chimp.log2rna
+
+human.log2TE <- human.log2ribo-human.log2rna 
+
+
+```
+
+compute SD, mean and CV for each data type  
+
+ribo
+```{r}
+SD.ribo.H<-apply(human.log2ribo, 1,sd,na.rm = T)
+mean.ribo.H<-apply(human.log2ribo, 1,mean,na.rm = T)
+SD.ribo.R<-apply(rhesus.log2ribo, 1,sd,na.rm = T)
+mean.ribo.R<-apply(rhesus.log2ribo, 1,mean,na.rm = T)
+SD.ribo.C<-apply(chimp.log2ribo, 1,sd,na.rm = T)
+mean.ribo.C<-apply(chimp.log2ribo, 1,mean,na.rm = T)
+
+CV.ribo.H <- SD.ribo.H - mean.ribo.H
+CV.ribo.R <- SD.ribo.R - mean.ribo.R
+CV.ribo.C <- SD.ribo.C - mean.ribo.C
+
+ribo.mean.CV<-apply(cbind(CV.ribo.H,CV.ribo.R,CV.ribo.C),1,mean)
+
+ribo.cv.cat <- cut(ribo.mean.CV,breaks = summary(ribo.mean.CV))                
+                
+            
+
+
+```
+
+rna
+```{r}
+SD.rna.H<-apply(human.log2rna, 1,sd,na.rm = T)
+mean.rna.H<-apply(human.log2rna, 1,mean,na.rm = T)
+SD.rna.R<-apply(rhesus.log2rna, 1,sd,na.rm = T)
+mean.rna.R<-apply(rhesus.log2rna, 1,mean,na.rm = T)
+SD.rna.C<-apply(chimp.log2rna, 1,sd,na.rm = T)
+mean.rna.C<-apply(chimp.log2rna, 1,mean,na.rm = T)
+
+CV.rna.H <- SD.rna.H - mean.rna.H
+CV.rna.R <- SD.rna.R - mean.rna.R
+CV.rna.C <- SD.rna.C - mean.rna.C
+
+rna.mean.CV<-apply(cbind(CV.rna.H,CV.rna.R,CV.rna.C),1,mean)
+rna.cv.cat <- cut(rna.mean.CV,breaks = summary(rna.mean.CV))
+```
+
+TE
+```{r}
+SD.TE.H<-apply(human.log2TE, 1,sd,na.rm = T)
+mean.TE.H<-apply(human.log2TE, 1,mean,na.rm = T)
+SD.TE.R<-apply(rhesus.log2TE, 1,sd,na.rm = T)
+mean.TE.R<-apply(rhesus.log2TE, 1,mean,na.rm = T)
+SD.TE.C<-apply(chimp.log2TE, 1,sd,na.rm = T)
+mean.TE.C<-apply(chimp.log2TE, 1,mean,na.rm = T)
+
+CV.TE.H <- SD.TE.H - mean.TE.H
+CV.TE.R <- SD.TE.R - mean.TE.R
+CV.TE.C <- SD.TE.C - mean.TE.C
+
+TE.mean.CV<-apply(cbind(CV.TE.H,CV.TE.R,CV.TE.C),1,mean)
+TE.cv.cat <- cut(TE.mean.CV,breaks = summary(TE.mean.CV))
+```
+
+
+
+
+make dataframe for ggplot
+
+```{r}
+
+# label data with mean exp category 
+
+
+#log2ribo<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$seqData == "ribo"])
+
+#log2ribo<-as.data.frame(cbind(log2ribo,ribo.cv.cat))
+
+human.log2ribo.temp<-as.data.frame(cbind(human.log2ribo,ribo.cv.cat))
+chimp.log2ribo.temp<-as.data.frame(cbind(chimp.log2ribo,ribo.cv.cat))
+
+#perhaps use for loop here
+
+str(human.log2ribo.temp %>% group_by(ribo.cv.cat)) 
+cor(human.log2ribo.temp %>% group_by(ribo.cv.cat),chimp.log2ribo.temp %>% group_by(ribo.cv.cat),use="complete.obs",method="spearman")
+
+%>% grepl()
+
+human.chimp.ribo.spearman<-as.vector(cor(human.log2ribo,chimp.log2ribo,use="complete.obs",method="spearman"))
+human.rhesus.ribo.spearman<-as.vector(cor(rhesus.log2ribo,human.log2ribo,use="complete.obs",method="spearman"))
+rhesus.chimp.ribo.spearman<-as.vector(cor(rhesus.log2ribo,chimp.log2ribo,use="complete.obs",method="spearman"))
+
+human.chimp.rna.spearman<-as.vector(cor(human.log2rna,chimp.log2rna,use="complete.obs",method="spearman"))
+human.rhesus.rna.spearman<-as.vector(cor(rhesus.log2rna,human.log2rna,use="complete.obs",method="spearman"))
+rhesus.chimp.rna.spearman<-as.vector(cor(rhesus.log2rna,chimp.log2rna,use="complete.obs",method="spearman"))
+
+human.chimp.TE.spearman<-as.vector(cor(human.log2TE,chimp.log2TE,use="complete.obs",method="spearman"))
+human.rhesus.TE.spearman<-as.vector(cor(rhesus.log2TE,human.log2TE,use="complete.obs",method="spearman"))
+rhesus.chimp.TE.spearman<-as.vector(cor(rhesus.log2TE,chimp.log2TE,use="complete.obs",method="spearman"))
+cross.species.spearman<-as.data.frame(cbind(human.chimp.ribo.spearman,human.rhesus.ribo.spearman,rhesus.chimp.ribo.spearman,human.chimp.rna.spearman,human.rhesus.rna.spearman,rhesus.chimp.rna.spearman,human.chimp.TE.spearman,human.rhesus.TE.spearman,rhesus.chimp.TE.spearman))
+cross.species.spearman<-melt(cross.species.spearman)
+```
+
+
+ribo 
+```{r}
+hist(cor(human.log2ribo,chimp.log2ribo,use="complete.obs",method="spearman"), col=rgb(0,0,1,0.5), xlab="Spearman's rho", main="Ribo" , xlim=c(0.6,1), ylim = c(0,15))
+hist(cor(rhesus.log2ribo,chimp.log2ribo,use="complete.obs",method="spearman"), add =T, col=rgb(1,0,0,0.5))
+hist(cor(rhesus.log2ribo,human.log2ribo,use="complete.obs",method="spearman"), add=T,col=rgb(0,1,0,0.5), breaks =2)
+legend("topright", legend=c("Human vs. Chimp", "Rhesus vs. Chimp", "Rhesus vs. Human"), lwd=3,lty=1, col=c("blue","red","green"), cex=0.75, bty="n")
+
+cross.species.spearman %>% filter(grepl(variable,pattern = "ribo")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="ribo spearman between species", x = "Spearman")+scale_fill_discrete(name="species pairs",labels =c("Human-Chimp","Human-Rhesus","Rhesus-Chimp"))
+
+cross.species.spearman %>% filter(grepl(variable,pattern = "ribo")) %>% ggplot(aes(x=value)) + geom_histogram(aes(fill=variable), alpha=0.3, position="identity" )+labs(title="ribo spearman between species", x = "Spearman")+scale_fill_discrete(name="species pairs",labels =c("Human-Chimp","Human-Rhesus","Rhesus-Chimp"))
+
+```
+
+rna
+```{r}
+hist(cor(human.log2rna,chimp.log2rna,use="complete.obs",method="spearman"), col=rgb(0,0,1,0.5), xlab="Spearman's rho", main="rna" , xlim=c(0.6,1), ylim = c(0,20))
+hist(cor(rhesus.log2rna,chimp.log2rna,use="complete.obs",method="spearman"), add =T, col=rgb(1,0,0,0.5),breaks =2)
+hist(cor(rhesus.log2rna,human.log2rna,use="complete.obs",method="spearman"), add=T,col=rgb(0,1,0,0.5))
+legend("topright", legend=c("Human vs. Chimp", "Rhesus vs. Chimp", "Rhesus vs. Human"), lwd=3,lty=1, col=c("blue","red","green"), cex=0.75, bty="n")
+
+cross.species.spearman %>% filter(grepl(variable,pattern = "rna")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="rna spearman between species", x = "Spearman")+scale_fill_discrete(name="species pairs",labels =c("Human-Chimp","Human-Rhesus","Rhesus-Chimp"))
+
+cross.species.spearman %>% filter(grepl(variable,pattern = "rna")) %>% ggplot(aes(x=value)) + geom_histogram(aes(fill=variable), alpha=0.3, position="identity")+labs(title="rna spearman between species", x = "Spearman")+scale_fill_discrete(name="species pairs",labels =c("Human-Chimp","Human-Rhesus","Rhesus-Chimp"))
+
+```
+
+TE
+```{r}
+hist(cor(human.log2TE,chimp.log2TE,use="complete.obs",method="spearman"), col=rgb(0,0,1,0.5), xlab="Spearman's rho", main="TE" , xlim=c(0.4,1), ylim = c(0,15))
+hist(cor(rhesus.log2TE,chimp.log2TE,use="complete.obs",method="spearman"), add =T, col=rgb(1,0,0,0.5))
+hist(cor(rhesus.log2TE,human.log2TE,use="complete.obs",method="spearman"), add=T,col=rgb(0,1,0,0.5))
+legend("topright", legend=c("Human vs. Chimp", "Rhesus vs. Chimp", "Rhesus vs. Human"), lwd=3,lty=1, col=c("blue","red","green"), cex=0.75, bty="n")
+
+cross.species.spearman %>% filter(grepl(variable,pattern = "TE")) %>% ggplot(aes(x=value)) + geom_density(aes(fill=variable), alpha=0.3)+labs(title="TE spearman between species", x = "Spearman")+scale_fill_discrete(name="species pairs",labels =c("Human-Chimp","Human-Rhesus","Rhesus-Chimp"))
+
+cross.species.spearman %>% filter(grepl(variable,pattern = "TE")) %>% ggplot(aes(x=value)) + geom_histogram(aes(fill=variable), alpha=0.3, position="identity")+labs(title="TE spearman between species", x = "Spearman")+scale_fill_discrete(name="species pairs",labels =c("Human-Chimp","Human-Rhesus","Rhesus-Chimp"))
+
+```
+
