@@ -1,0 +1,393 @@
+---
+title: "include additional mm4 human data to correct batch effect"
+author: "Sidney Wang"
+date: "October 17, 2015"
+output: html_document
+---
+
+Since most of rhesus and chimp are in mm4, while the human data include in this study are not, batch order is to some degree confounded with species. To correct for bach effect, we decided to first include the additional 4 human data from mm4 to regress out batch effect and then proceed with analysis on the original set of 16 samples. The analysis in this document will assess the validity of this approach.
+
+I went back to process additional data. The file "process_additional_human_data_from_mm4_101515" documented detailed description on the process. I then save the data table as r object in the rdr folder
+
+load data
+```{r}
+load("../rdas/HRC.plus.mm4H.ribo.rda")
+load("../rdas/mm4.ribo.rda")
+load("../rdas/HCR.ortho.geneLength.rda")
+```
+
+plot count range
+```{r}
+boxplot(log2(HRC.plus.mm4H.ribo[,-1]+1), outline =F)
+boxplot(log2(mm4.ribo[,-1]+1), outline =F)
+```
+
+compute RPKM
+=============
+
+Since I found some slight variation in ortho genelength computed for each species, I will compute RPKM in the following 3 ways and compare resluts.
+1. use human gene length
+2. use the max length amongst the three species
+3. use species specific gene length
+
+use human gene length
+```{r}
+HRC.plus.mm4H.rpkm.hLength <- prop.table(as.matrix(HRC.plus.mm4H.ribo[,-1]),2)*10^9/HCR.geneLength$Human
+
+mm4.rpkm.hLength <- prop.table(as.matrix(mm4.ribo[,-1]),2)*10^9/HCR.geneLength$Human
+```
+
+use max gene length
+```{r}
+HRC.plus.mm4H.rpkm.maxLength <- prop.table(as.matrix(HRC.plus.mm4H.ribo[,-1]),2)*10^9/HCR.geneLength$HCR.max
+
+mm4.rpkm.maxLength <- prop.table(as.matrix(mm4.ribo[,-1]),2)*10^9/HCR.geneLength$HCR.max
+```
+
+use species specific length
+
+```{r}
+HRC.plus.mm4H.rpkm.speLength <- prop.table(as.matrix(HRC.plus.mm4H.ribo[,-1]),2)*10^9
+HRC.plus.mm4H.rpkm.speLength <- cbind(HRC.plus.mm4H.rpkm.speLength[,1:5]/HCR.geneLength$Chimp,HRC.plus.mm4H.rpkm.speLength[,6:11]/HCR.geneLength$Human,HRC.plus.mm4H.rpkm.speLength[,12:16]/HCR.geneLength$Rhesus,HRC.plus.mm4H.rpkm.speLength[,17:20]/HCR.geneLength$Human)
+
+
+mm4.rpkm.speLength <- prop.table(as.matrix(mm4.ribo[,-1]),2)*10^9
+mm4.rpkm.speLength<-cbind(mm4.rpkm.speLength[,1:4]/HCR.geneLength$Chimp, mm4.rpkm.speLength[,5:8]/HCR.geneLength$Rhesus, mm4.rpkm.speLength[,9:12]/HCR.geneLength$Human)
+
+```
+
+
+filter data by requiring at least half of mm4 data have rpkm greater than 0
+
+```{r}
+rpkm.filter<-c() 
+for (i in 1:length(mm4.rpkm.speLength[,1])){
+rpkm.filter[i]<-sum(mm4.rpkm.speLength[i,] == 0) < 7
+}
+
+HRC.plus.mm4H.rpkm.speLength<-HRC.plus.mm4H.rpkm.speLength[rpkm.filter,]
+mm4.rpkm.speLength<-mm4.rpkm.speLength[rpkm.filter,]
+```
+
+quantile normalize and log2 transform data
+```{r}
+library(limma)
+HRC.plus.mm4H.rpkm.speLength.Q<-normalizeQuantiles(HRC.plus.mm4H.rpkm.speLength,ties = T)
+mm4.rpkm.speLength.Q<-normalizeQuantiles(mm4.rpkm.speLength,ties = T)
+log2.HRC.plus.mm4H.rpkm.speLength.Q<-log2(HRC.plus.mm4H.rpkm.speLength.Q)
+is.na(log2.HRC.plus.mm4H.rpkm.speLength.Q)<-is.infinite(log2.HRC.plus.mm4H.rpkm.speLength.Q)
+log2.mm4.rpkm.speLength.Q<-log2(mm4.rpkm.speLength.Q)
+is.na(log2.mm4.rpkm.speLength.Q)<-is.infinite(log2.mm4.rpkm.speLength.Q)
+```
+
+DE test, LRT 
+
+```{r}
+species.label<-as.factor(substring(colnames(log2.mm4.rpkm.speLength.Q),1,1))
+CRpvalue<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,1:8]~species.label[1:8])
+reducedModel<-lm(log2.mm4.rpkm.speLength.Q[i,1:8]~1)
+CRpvalue[i]<-anova(fullModel,reducedModel)$"Pr(>F)"[2]
+}
+
+HRpvalue<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,5:12]~species.label[5:12])
+reducedModel<-lm(log2.mm4.rpkm.speLength.Q[i,5:12]~1)
+HRpvalue[i]<-anova(fullModel,reducedModel)$"Pr(>F)"[2]
+}
+
+HCpvalue<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,-5:-8]~species.label[-5:-8])
+reducedModel<-lm(log2.mm4.rpkm.speLength.Q[i,-5:-8]~1)
+HCpvalue[i]<-anova(fullModel,reducedModel)$"Pr(>F)"[2]
+}
+
+
+```
+
+qvalue 
+```{r}
+library(qvalue)
+qvalue(HCpvalue)$pi0
+qvalue(CRpvalue)$pi0
+qvalue(HRpvalue)$pi0
+length(which(qvalue(HCpvalue)$qvalues < 0.01))
+length(which(qvalue(HRpvalue)$qvalues < 0.01))
+length(which(qvalue(CRpvalue)$qvalues < 0.01))
+
+vennDiagram(cbind(qvalue(HCpvalue)$qvalues < 0.01,qvalue(HRpvalue)$qvalues < 0.01,qvalue(CRpvalue)$qvalues < 0.01),names = c("HC","HR","CR"))
+```
+
+
+DE test, beta
+
+```{r}
+species.label<-as.factor(substring(colnames(log2.mm4.rpkm.speLength.Q),1,1))
+CRpvalue<-c()
+CR.effect <- c()
+CR.se<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,1:8]~species.label[1:8])
+CRpvalue[i]<-summary(fullModel)$coefficients[2,4]
+CR.effect[i] <- summary(fullModel)$coefficients[2,1]
+CR.se[i] <- summary(fullModel)$coefficients[2,2]
+
+}
+
+HRpvalue<-c()
+HR.effect <- c()
+HR.se <- c()
+
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,5:12]~species.label[5:12])
+HRpvalue[i]<-summary(fullModel)$coefficients[2,4]
+HR.effect[i] <- summary(fullModel)$coefficients[2,1]
+HR.se[i] <- summary(fullModel)$coefficients[2,2]
+
+}
+
+HCpvalue<-c()
+HC.effect <- c()
+HC.se <- c()
+
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,-5:-8]~species.label[-5:-8])
+HCpvalue[i]<-summary(fullModel)$coefficients[2,4]
+HC.effect[i] <- summary(fullModel)$coefficients[2,1]
+HC.se[i] <- summary(fullModel)$coefficients[2,2]
+
+}
+
+
+```
+
+
+effect size and variance
+
+```{r}
+
+boxplot(log2(abs(HC.effect)),log2(abs(HR.effect)),log2(abs(CR.effect)), xlab="",main="beta",ylab="log2 absolute slope", notch=T)
+axis(1,at = c(1,2,3),labels = c("HC","HR","CR"))
+
+boxplot(log2(HC.se),log2(HR.se),log2(CR.se), xlab="",main="se",ylab="log2 SE", notch=T)
+axis(1,at = c(1,2,3),labels = c("HC","HR","CR"))
+
+```
+
+
+
+
+pca
+```{r}
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(gdata)
+pc<-prcomp(t(na.omit(log2.mm4.rpkm.speLength.Q)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec))
+names(temp.data)<-c("ID","PC","value","pc1","species")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+
+
+read.xls("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/primate_ribo_gender_mmbatch.xlsx")->cell.source
+cell.source<-cell.source[,1:4]
+
+
+batch<-c(as.character(cell.source$libmix),rep("mm4",4))
+
+pc<-prcomp(t(na.omit(log2.HRC.plus.mm4H.rpkm.speLength.Q)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape = batch))+facet_wrap(~PC)
+
+
+```
+
+within speceis SD
+```{r}
+SD.ribo.H<-apply(log2.mm4.rpkm.speLength.Q[,9:12], 1,sd,na.rm = T)
+mean.ribo.H<-apply(log2.mm4.rpkm.speLength.Q[,9:12], 1,mean,na.rm = T)
+SD.ribo.R<-apply(log2.mm4.rpkm.speLength.Q[,5:8], 1,sd,na.rm = T)
+mean.ribo.R<-apply(log2.mm4.rpkm.speLength.Q[,5:8], 1,mean,na.rm = T)
+SD.ribo.C<-apply(log2.mm4.rpkm.speLength.Q[,1:4], 1,sd,na.rm = T)
+mean.ribo.C<-apply(log2.mm4.rpkm.speLength.Q[,1:4], 1,mean,na.rm = T)
+
+CV.ribo.H <- SD.ribo.H - mean.ribo.H
+CV.ribo.R <- SD.ribo.R - mean.ribo.R
+CV.ribo.C <- SD.ribo.C - mean.ribo.C
+
+boxplot(SD.ribo.H,SD.ribo.R,SD.ribo.C,xlab="", notch=T)
+axis(1,c(1,2,3),c("human","rhesus","chimp"))
+
+boxplot(CV.ribo.H,CV.ribo.R,CV.ribo.C,xlab="", notch=T)
+axis(1,c(1,2,3),c("human","rhesus","chimp"))
+
+```
+
+weighted least squared
+
+```{r}
+Var.ribo.R <- SD.ribo.R^2
+Var.ribo.C <- SD.ribo.C^2
+Var.ribo.H <- SD.ribo.H^2
+species.label<-as.factor(substring(colnames(log2.mm4.rpkm.speLength.Q),1,1))
+CRpvalue.weighted.var<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,1:8]~species.label[1:8],weights = c(rep(1/Var.ribo.C[i], 4),rep(1/Var.ribo.R[i], 4)))
+CRpvalue.weighted.var[i]<-summary(fullModel)$coefficients[2,4]
+}
+
+HRpvalue.weighted.var<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,5:12]~species.label[5:12],weights = c(rep(1/Var.ribo.R[i], 4),rep(1/Var.ribo.H[i], 4)))
+HRpvalue.weighted.var[i]<-summary(fullModel)$coefficients[2,4]
+}
+
+HCpvalue.weighted.var<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,-5:-8]~species.label[-5:-8],weights = c(rep(1/Var.ribo.C[i], 4),rep(1/Var.ribo.H[i], 4)))
+
+HCpvalue.weighted.var[i]<-summary(fullModel)$coefficients[2,4]
+}
+
+
+
+qvalue(HCpvalue.weighted.var)$pi0
+qvalue(CRpvalue.weighted.var)$pi0
+qvalue(HRpvalue.weighted.var)$pi0
+length(which(qvalue(HCpvalue.weighted.var)$qvalues < 0.01))
+length(which(qvalue(HRpvalue.weighted.var)$qvalues < 0.01))
+length(which(qvalue(CRpvalue.weighted.var)$qvalues < 0.01))
+
+
+
+CRpvalue.weighted.sd<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,1:8]~species.label[1:8],weights = c(rep(1/SD.ribo.C[i], 4),rep(1/SD.ribo.R[i], 4)))
+CRpvalue.weighted.sd[i]<-summary(fullModel)$coefficients[2,4]
+}
+
+HRpvalue.weighted.sd<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,5:12]~species.label[5:12],weights = c(rep(1/SD.ribo.R[i], 4),rep(1/SD.ribo.H[i], 4)))
+HRpvalue.weighted.sd[i]<-summary(fullModel)$coefficients[2,4]
+}
+
+HCpvalue.weighted.sd<-c()
+for (i in 1:length(log2.mm4.rpkm.speLength.Q[,1])){
+fullModel<-lm(log2.mm4.rpkm.speLength.Q[i,-5:-8]~species.label[-5:-8],weights = c(rep(1/SD.ribo.C[i], 4),rep(1/SD.ribo.H[i], 4)))
+
+HCpvalue.weighted.sd[i]<-summary(fullModel)$coefficients[2,4]
+}
+
+qvalue(HCpvalue.weighted.sd)$pi0
+qvalue(CRpvalue.weighted.sd)$pi0
+qvalue(HRpvalue.weighted.sd)$pi0
+length(which(qvalue(HCpvalue.weighted.sd)$qvalues < 0.01))
+length(which(qvalue(HRpvalue.weighted.sd)$qvalues < 0.01))
+length(which(qvalue(CRpvalue.weighted.sd)$qvalues < 0.01))
+
+```
+
+
+regress out batch (fix effect)
+
+```{r}
+
+
+res.list<-list()
+
+for (i in 1:length(log2.HRC.plus.mm4H.rpkm.speLength.Q[,1])){
+batch.fit<-lm(log2.HRC.plus.mm4H.rpkm.speLength.Q[i,]~as.factor(batch))
+res.list[[i]]<-as.data.frame(t(batch.fit$residuals))
+}
+batch.fit.res<-rbind_all(res.list)
+pc<-prcomp(t(na.omit(batch.fit.res)),center = T,scale = T)
+#pc<-prcomp(batch.fit$residuals[1:13,],center = T,scale = T)
+
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape=batch))+facet_wrap(~PC)
+
+
+```
+
+protect main effect and regress out batch (fix effect) 
+
+```{r}
+
+spec<-substring(colnames(log2.HRC.plus.mm4H.rpkm.speLength.Q),1,1)
+spec[17:20]<-c("H","H","H","H")
+spec.design <- model.matrix(~ 0+spec)
+
+res.list<-list()
+intercept<-c()
+beta1<-c()
+beta2<-c()
+for (i in 1:length(log2.HRC.plus.mm4H.rpkm.speLength.Q[,1])){
+batch.fit<-lm(log2.HRC.plus.mm4H.rpkm.speLength.Q[i,]~as.factor(spec)+as.factor(batch))
+res.list[[i]]<-as.data.frame(t(batch.fit$residuals)) 
+intercept[i]<-batch.fit$coefficients[1]    
+beta1[i]<-batch.fit$coefficients[2]
+beta2[i]<-batch.fit$coefficients[3]
+
+                          }
+
+batch.fit.res<-rbind_all(res.list)
+batch.removed<-batch.fit.res+intercept+beta1 %*% t(spec.design[,2])+beta2 %*% t(spec.design[,3])
+
+pc<-prcomp(t(na.omit(batch.removed)),center = T,scale = T)
+#pc<-prcomp(batch.fit$residuals[1:13,],center = T,scale = T)
+
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape=batch))+facet_wrap(~PC)
+
+
+```
+
+
+
+limma remove batch effect
+
+```{r}
+
+spec<-substring(colnames(log2.HRC.plus.mm4H.rpkm.speLength.Q),1,1)
+spec[17:20]<-c("H","H","H","H")
+spec.design <- model.matrix(~ 0+spec)
+#batch.removed.limma.full<-removeBatchEffect(log2.HRC.plus.mm4H.rpkm.speLength.Q,batch = as.factor(batch))
+batch.removed.limma.full<-removeBatchEffect(log2.HRC.plus.mm4H.rpkm.speLength.Q,batch = as.factor(batch),design = spec.design)
+
+
+pc<-prcomp(t(na.omit(batch.removed.limma.full)),center = T,scale = T)
+#pc<-prcomp(batch.fit$residuals[1:13,],center = T,scale = T)
+
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape=batch))+facet_wrap(~PC)
+
+
+```
+
+
+
