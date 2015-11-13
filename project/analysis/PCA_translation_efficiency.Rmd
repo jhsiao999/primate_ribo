@@ -1,0 +1,189 @@
+---
+title: "PCA on Translation efficiency"
+author: "Sidney Wang"
+date: "October 13, 2015"
+output: html_document
+---
+
+load libraries 
+
+```{r,echo=FALSE}
+library("reshape2", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+library("ggplot2", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+library("dplyr", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+library("Biobase")
+library("gdata", lib.loc="/Library/Frameworks/R.framework/Versions/3.2/Resources/library")
+
+```
+
+
+load data
+```{r}
+load("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/manuscript/data/rdas/eSetRRP.rda")
+
+log2ribo<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$seqData == "ribo"])
+log2rna<-exprs(eSetRRP.RP.Q.log2[,eSetRRP.RP.Q.log2$seqData == "rna"])
+log2TE <- log2ribo - log2rna
+read.xls("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/primate_ribo_gender_mmbatch.xlsx")->cell.source
+cell.source<-cell.source[,1:4]
+cell.source<-cell.source[-11,]
+batch.r<-cell.source$libmix
+```
+
+
+pca
+```{r}
+pc<-prcomp(t(na.omit(log2TE)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,cell.source$libmix,cell.source$sex,cell.source$source.center))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch","sex","source")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = sex))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = source))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape = batch ))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch, shape = species ))+facet_wrap(~PC)
+
+```
+
+
+use batched corrected ribo data
+
+```{r}
+load("../rdas/HRC.plus.mm4H.ribo.rda")
+load("../rdas/HCR.ortho.geneLength.rda")
+
+HRC.plus.mm4H.rpkm.speLength <- prop.table(as.matrix(HRC.plus.mm4H.ribo[,-1]),2)*10^9
+HRC.plus.mm4H.rpkm.speLength <- cbind(HRC.plus.mm4H.rpkm.speLength[,1:5]/HCR.geneLength$Chimp,HRC.plus.mm4H.rpkm.speLength[,6:11]/HCR.geneLength$Human,HRC.plus.mm4H.rpkm.speLength[,12:16]/HCR.geneLength$Rhesus,HRC.plus.mm4H.rpkm.speLength[,17:20]/HCR.geneLength$Human)
+
+
+HRC.plus.mm4H.rpkm.speLength<-cbind(HRC.plus.mm4H.ribo$ENSGID,as.data.frame(HRC.plus.mm4H.rpkm.speLength))
+expr.filter<-HRC.plus.mm4H.rpkm.speLength$`HRC.plus.mm4H.ribo$ENSGID` %in% row.names(log2ribo)
+
+HRC.plus.mm4H.rpkm.speLength<-HRC.plus.mm4H.rpkm.speLength[expr.filter,]
+library(limma)
+HRC.plus.mm4H.rpkm.speLength.Q<-normalizeQuantiles(HRC.plus.mm4H.rpkm.speLength[,-1],ties = T)
+log2.HRC.plus.mm4H.rpkm.speLength.Q<-log2(HRC.plus.mm4H.rpkm.speLength.Q)
+
+is.na(log2.HRC.plus.mm4H.rpkm.speLength.Q)<-is.infinite(as.matrix(log2.HRC.plus.mm4H.rpkm.speLength.Q))
+
+spec<-substring(colnames(log2.HRC.plus.mm4H.rpkm.speLength.Q),1,1)
+spec[17:20]<-c("H","H","H","H")
+spec.design <- model.matrix(~ 0+spec)
+
+read.xls("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/primate_ribo_gender_mmbatch.xlsx")->cell.source
+cell.source<-cell.source[,1:4]
+
+batch.f<-as.factor(c(as.vector(cell.source$libmix),c("mm4","mm4","mm4","mm4")))
+#batch.removed.limma.full<-removeBatchEffect(log2.HRC.plus.mm4H.rpkm.speLength.Q,batch = as.factor(batch))
+batch.removed.limma.full<-removeBatchEffect(log2.HRC.plus.mm4H.rpkm.speLength.Q,batch = as.factor(batch.f),design = spec.design)
+
+
+pc<-prcomp(t(na.omit(batch.removed.limma.full)),center = T,scale = T)
+#pc<-prcomp(batch.fit$residuals[1:13,],center = T,scale = T)
+
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch.f))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape=batch))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+
+
+log2TE.removedBatch <- batch.removed.limma.full[,c(-11,-17:-20)] - log2rna
+
+pc<-prcomp(t(na.omit(log2TE.removedBatch)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch.r))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape = batch ))+facet_wrap(~PC)
+
+```
+
+Btach correct RNA seq data
+```{r}
+#library(gdata)
+read.xls("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/Jenny_AthmaRNALib.xlsx")->rna.batch
+
+rna.batch<-rna.batch[1:27,1:2]
+rna.batch<-gsub("-",".",as.matrix(rna.batch))
+rna.batch<-as.data.frame(gsub("\\.","",rna.batch))
+
+sample.names<-sub(".rna","",colnames(log2rna))
+
+rna.batch<-rna.batch[rna.batch$Sample.Name%in%sample.names,]
+rna.batch<-rna.batch[order(rna.batch$Sample.Name),]
+
+spec<-substring(colnames(log2rna),1,1)
+
+
+
+pc<-prcomp(t(na.omit(log2rna)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,rna.batch$Master.Mix))
+#temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch.r))
+
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+
+
+
+spec.design <- model.matrix(~ 0+spec)
+
+batch.removed.rna<-removeBatchEffect(log2rna,batch = rna.batch$Master.Mix,design = spec.design)
+
+
+
+pc<-prcomp(t(na.omit(batch.removed.rna)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,rna.batch$Master.Mix))
+#temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch.r))
+
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+
+
+
+
+log2TE.removedBatch <- batch.removed.limma.full[,c(-11,-17:-20)] - batch.removed.rna
+
+pc<-prcomp(t(na.omit(log2TE.removedBatch)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+spec<-substring(rownames(pc$x),1,1)
+#temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,rna.batch$Master.Mix))
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch.r))
+
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = batch))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape = batch ))+facet_wrap(~PC)
+
+temp.data %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species))+facet_wrap(~PC)
+
+```
+
