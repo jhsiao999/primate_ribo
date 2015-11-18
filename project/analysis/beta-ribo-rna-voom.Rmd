@@ -1,7 +1,7 @@
 ---
 title: "RNA vs. Ribo divergence, regression coefficients, voom adjusted"
 author: "Joyce Hsiao"
-date: "2015-10-06"
+date: "2015-11-18"
 output: 
   html_document:
     toc: true
@@ -15,11 +15,20 @@ cat(paste("Last updated:", last_update))
 ```
 
 
-Apply the voom method to weight data of each gene, in order to address heterogeneity of variances.
+## Objectives
+
+We computed voom weights for every gene and then applied these weights to the data while
+testing the null hyothesis that divergence is the same between RNA and Ribo levels, using the two approaches:
+
+1. t-test for regression coefficients
+
+2. Likelihood ratio model 
+
+Results show that t-test is more conservative thatn the Likelihood ratio test in detecting number of significant genes. 
 
 
-Set up
-======
+
+## Set up
 
 ```{r knitr_settings, include=FALSE, echo=FALSE}
 library(knitr)
