@@ -1,0 +1,502 @@
+---
+title: "include_additional_human_data_for_batch_effect"
+author: "Sidney Wang"
+date: "November 3, 2015"
+output: html_document
+---
+
+Additional data from mm2 and mm7 were processed and included in "HCR.plus.ribo" data object to properly model batch effect and to further correct it.
+
+load data
+```{r}
+load("../rdas/HRC.plus.ribo.rda")
+load("../rdas/mm4.ribo.rda")
+load("../rdas/HCR.ortho.geneLength.rda")
+```
+
+compute RPKM
+=============
+use species specific gene length
+
+```{r}
+HCR.plus.ribo.rpkm <- prop.table(as.matrix(HCR.plus.ribo[,-1]),2)*10^9
+HCR.plus.ribo.rpkm <- cbind(HCR.plus.ribo.rpkm[,1:5]/HCR.geneLength$Chimp,HCR.plus.ribo.rpkm[,6:11]/HCR.geneLength$Human,HCR.plus.ribo.rpkm[,12:16]/HCR.geneLength$Rhesus,HCR.plus.ribo.rpkm[,17:26]/HCR.geneLength$Human)
+
+
+mm4.ribo.rpkm <- prop.table(as.matrix(mm4.ribo[,-1]),2)*10^9
+mm4.ribo.rpkm<-cbind(mm4.ribo.rpkm[,1:4]/HCR.geneLength$Chimp, mm4.ribo.rpkm[,5:8]/HCR.geneLength$Rhesus, mm4.ribo.rpkm[,9:12]/HCR.geneLength$Human)
+
+```
+
+filter data by requiring at 2/3 (8) of mm4 data have rpkm greater than 0
+
+```{r}
+rpkm.filter<-c() 
+for (i in 1:length(mm4.ribo.rpkm[,1])){
+rpkm.filter[i]<-sum(mm4.ribo.rpkm[i,] == 0) < 5
+}
+
+HCR.plus.ribo.rpkm<-HCR.plus.ribo.rpkm[rpkm.filter,]
+mm4.ribo.rpkm<-mm4.ribo.rpkm[rpkm.filter,]
+```
+
+quantile normalize and log2 transform data
+```{r}
+library(limma)
+HCR.plus.ribo.rpkm.Q<-normalizeQuantiles(HCR.plus.ribo.rpkm,ties = T)
+mm4.ribo.rpkm.Q<-normalizeQuantiles(mm4.ribo.rpkm,ties = T)
+
+is.na(HCR.plus.ribo.rpkm.Q)<-which(HCR.plus.ribo.rpkm.Q == 0)
+log2.HCR.plus.ribo.rpkm.Q<-log2(HCR.plus.ribo.rpkm.Q)
+
+is.na(mm4.ribo.rpkm.Q)<-which(mm4.ribo.rpkm.Q == 0)
+log2.mm4.ribo.rpkm.Q<-log2(mm4.ribo.rpkm.Q)
+```
+
+
+limma remove batch effect
+
+```{r}
+
+spec<-substring(colnames(log2.HCR.plus.ribo.rpkm.Q),1,1)
+spec[17:26]<-rep("H",10)
+spec.design <- model.matrix(~spec)
+library(gdata)
+read.xls("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/primate_ribo_gender_mmbatch.xlsx")->cell.source
+cell.source<-cell.source[,1:4]
+batch.additional<-read.xls("/Users/siddisis/Dropbox/work/Ribosome_profiling/Primate_comparison/mmbatch_info_additional_YRI_for_batch_correction.xlsx")
+
+batch<-c(as.character(cell.source$libmix),c(as.character(batch.additional$libmix[4:7]),as.character(batch.additional$libmix[-4:-7])))
+
+batch.removed.limma.full<-removeBatchEffect(log2.HCR.plus.ribo.rpkm.Q,batch = as.factor(batch),design = spec.design)
+
+```
+
+limma, weighted least square
+```{r}
+var.weight<-matrix(nrow =length(log2.HCR.plus.ribo.rpkm.Q[,1]),ncol = 26 )
+
+for (i in 1:length(log2.HCR.plus.ribo.rpkm.Q[,1])){
+#chimp.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,1:5],na.rm = T)
+mm1.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,6:9],na.rm = T)
+mm2.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,c(10,21,22,23)],na.rm = T)
+mm7.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,c(11,24,25,26)],na.rm = T)
+#rhesus.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,12:16],na.rm = T)
+mm4.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,c(1:3,5,13:20)],na.rm = T)
+mm8.var<-var(log2.HCR.plus.ribo.rpkm.Q[i,c(4,12)],na.rm = T)
+var.weight[i,]<-c(rep(1/mm4.var,3),1/mm8.var,1/mm4.var,rep(1/mm1.var,4),1/mm2.var,1/mm7.var,1/mm8.var,rep(1/mm4.var,8),rep(1/mm2.var,3),rep(1/mm7.var,3))
+}
+
+batch.removed.limma.weighted<-removeBatchEffect(log2.HCR.plus.ribo.rpkm.Q,batch = as.factor(batch),design = spec.design,weight=var.weight)
+
+```
+
+
+
+Combat
+```{r, cache=TRUE}
+library(sva)
+
+
+batch.removed.combat.par<-ComBat(dat = log2.HCR.plus.ribo.rpkm.Q,mod = model.matrix(~ spec),batch = as.factor(batch),par.prior = TRUE,prior.plots = FALSE)
+
+batch.removed.combat.nonpar<-ComBat(dat = log2.HCR.plus.ribo.rpkm.Q,mod = model.matrix(~ spec),batch = as.factor(batch),par.prior = FALSE,prior.plots = FALSE)
+
+
+
+```
+
+
+
+study design
+```{r}
+table(batch,spec)
+```
+
+
+
+pca
+```{r}
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(gdata)
+
+# full data
+pc<-prcomp(t(na.omit(log2.HCR.plus.ribo.rpkm.Q)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape = batch))+facet_wrap(~PC)+labs(y="pcX")
+
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(shape = species))+facet_wrap(~PC)+labs(y="pcX")
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(shape = batch))+facet_wrap(~PC)+labs(y="pcX")
+
+# mm4
+pc<-prcomp(t(na.omit(log2.mm4.ribo.rpkm.Q)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+mm4.spec<-substring(rownames(pc$x),1,1)
+mm4.spec<-c(mm4.spec[1:8],rep("H",4))
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],mm4.spec))
+names(temp.data)<-c("ID","PC","value","pc1","species")
+
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(shape = species))+facet_wrap(~PC)+labs(y="pcX")
+
+# combat nonparametric corrected all 26
+pc<-prcomp(t(na.omit(batch.removed.combat.nonpar)),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec,batch))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape=batch))+facet_wrap(~PC)
+
+# combat nonparametric corrected, 16 used 
+pc<-prcomp(t(na.omit(batch.removed.combat.nonpar[,1:16])),center = T,scale = T)
+barplot((pc$sdev)^2/sum((pc$sdev)^2), names.arg =  colnames(pc$x))
+temp.data<-as.data.frame(cbind(melt(pc$x),pc$x[,1],spec[1:16],batch[1:16]))
+names(temp.data)<-c("ID","PC","value","pc1","species","batch")
+
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(color = species, shape=batch))+facet_wrap(~PC)+labs(y="PCX")
+
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(shape = species))+facet_wrap(~PC)+labs(y="pcX")
+temp.data %>% filter(as.numeric(temp.data$PC) < 10) %>% ggplot(aes(x=pc1,y=value))+geom_point(aes(shape = batch))+facet_wrap(~PC)+labs(y="pcX")
+
+
+
+## pc1 vs pc2
+
+pc.mm4<-prcomp(t(na.omit(log2.mm4.ribo.rpkm.Q)),center = T,scale = T)
+pc1.mm4<-pc.mm4$x[,1]
+pc2.mm4<-pc.mm4$x[,2]
+
+mm4.pc.data<-as.data.frame(cbind(pc1.mm4,pc2.mm4))
+mm4.pc.data<-as.data.frame(cbind(rownames(mm4.pc.data),rep("mm4",12),mm4.pc.data,c(rep("C",4),rep("R",4),rep("H",4)),rep("mm4",12)),stringsAsFactors=F)
+names(mm4.pc.data)<-c("ID","data","PC1","PC2","species","batch")
+
+pc.ori<-prcomp(t(na.omit(log2.HCR.plus.ribo.rpkm.Q[,1:16])),center = T,scale = T)
+pc1.ori<-pc.ori$x[,1]
+pc2.ori<-pc.ori$x[,2]
+
+pc.limma<-prcomp(t(na.omit(batch.removed.limma.full[,1:16])),center = T,scale = T)
+pc1.limma<-pc.limma$x[,1]
+pc2.limma<-pc.limma$x[,2]
+
+pc.limma.weighted<-prcomp(t(na.omit(batch.removed.limma.weighted[,1:16])),center = T,scale = T)
+pc1.limma.wt<-pc.limma.weighted$x[,1]
+pc2.limma.wt<-pc.limma.weighted$x[,2]
+
+pc.combat.par<-prcomp(t(na.omit(batch.removed.combat.par[,1:16])),center = T,scale = T)
+pc1.combat.par<-pc.combat.par$x[,1]
+pc2.combat.par<-pc.combat.par$x[,2]
+
+pc.combat.nonpar<-prcomp(t(na.omit(batch.removed.combat.nonpar[,1:16])),center = T,scale = T)
+pc1.combat.nonpar<-pc.combat.nonpar$x[,1]
+pc2.combat.nonpar<-pc.combat.nonpar$x[,2]
+
+pc1.data<-cbind(pc1.ori,pc1.limma,pc1.limma.wt,pc1.combat.par,pc1.combat.nonpar)
+colnames(pc1.data)<-c("original","limma","limma.wt","combat.par","combat.nonpar")
+pc1.data<-melt(pc1.data)
+pc2.data<-melt(cbind(pc2.ori,pc2.limma,pc2.limma.wt,pc2.combat.par,pc2.combat.nonpar))
+
+pc.data<-cbind(pc1.data,pc2.data$value,spec[1:16],batch[1:16])
+names(pc.data)<-c("ID","data","PC1","PC2","species","batch")
+
+#pc.data %>% ggplot(aes(x=PC1,y=PC2))+geom_point(aes(color = species, shape=batch))+facet_wrap(~data)+theme(panel.grid.minor=element_blank())
+
+rbind(mm4.pc.data,pc.data)%>% ggplot(aes(x=PC1,y=PC2))+geom_point(aes(color = species, shape=batch))+facet_wrap(~data)+theme(panel.grid.minor=element_blank())
+
+rbind(mm4.pc.data,pc.data)%>% ggplot(aes(x=PC1,y=PC2))+geom_point(aes( shape=species))+facet_wrap(~data)+theme(panel.grid.minor=element_blank())
+
+rbind(mm4.pc.data,pc.data)%>% ggplot(aes(x=PC1,y=PC2))+geom_point(aes( shape=batch))+facet_wrap(~data)+theme(panel.grid.minor=element_blank())
+
+
+
+```
+
+
+
+DE test beta without batch correction
+
+```{r}
+log2.HCR.ribo.rpkm.Q<-log2.HCR.plus.ribo.rpkm.Q[,1:16]
+
+species.label<-as.factor(substring(colnames(log2.HCR.ribo.rpkm.Q),1,1))
+
+ori.lm.fit<-lmFit(log2.HCR.ribo.rpkm.Q,design = model.matrix(~ species.label))
+oriHvC.effect<-ori.lm.fit$coefficient[,2]
+oriRvC.effect<-ori.lm.fit$coefficient[,3]
+
+ori.de.test<-eBayes(ori.lm.fit)
+
+oriHvC.pval<-ori.de.test$p.value[,2]
+oriRvC.pval<-ori.de.test$p.value[,3]
+
+```
+
+
+DE test, beta for mm4
+
+```{r}
+species.label<-as.factor(substring(colnames(log2.mm4.ribo.rpkm.Q),1,1))
+
+mm4.lm.fit<-lmFit(log2.mm4.ribo.rpkm.Q,design = model.matrix(~ species.label))
+mm4HvC.effect<-mm4.lm.fit$coefficient[,3]
+mm4RvC.effect<-mm4.lm.fit$coefficient[,2]
+
+mm4.de.test<-eBayes(mm4.lm.fit)
+
+mm4HvC.pval<-mm4.de.test$p.value[,3]
+mm4RvC.pval<-mm4.de.test$p.value[,2]
+
+```
+
+
+
+DE test beta for batch corrected set
+
+```{r}
+
+species.label<-as.factor(substring(colnames(log2.HCR.ribo.rpkm.Q),1,1))
+
+# limma
+
+HCR.ribo.batch.corrected<-batch.removed.limma.full[,1:16]
+
+limma.lm.fit<-lmFit(HCR.ribo.batch.corrected,design = model.matrix(~ species.label))
+limmaHvC.effect<-limma.lm.fit$coefficient[,2]
+limmaRvC.effect<-limma.lm.fit$coefficient[,3]
+
+limma.de.test<-eBayes(limma.lm.fit)
+
+limmaHvC.pval<-limma.de.test$p.value[,2]
+limmaRvC.pval<-limma.de.test$p.value[,3]
+
+# weighted limma
+
+HCR.ribo.batch.corrected<-batch.removed.limma.weighted[,1:16]
+limma.wt.lm.fit<-lmFit(HCR.ribo.batch.corrected,design = model.matrix(~ species.label))
+limma.wtHvC.effect<-limma.wt.lm.fit$coefficient[,2]
+limma.wtRvC.effect<-limma.wt.lm.fit$coefficient[,3]
+
+limma.wt.de.test<-eBayes(limma.wt.lm.fit)
+
+limma.wtHvC.pval<-limma.wt.de.test$p.value[,2]
+limma.wtRvC.pval<-limma.wt.de.test$p.value[,3]
+
+# combat parametric
+
+HCR.ribo.batch.corrected<-batch.removed.combat.par[,1:16]
+
+combat.par.lm.fit<-lmFit(HCR.ribo.batch.corrected,design = model.matrix(~ species.label))
+combat.parHvC.effect<-combat.par.lm.fit$coefficient[,2]
+combat.parRvC.effect<-combat.par.lm.fit$coefficient[,3]
+
+combat.par.de.test<-eBayes(combat.par.lm.fit)
+
+combat.parHvC.pval<-combat.par.de.test$p.value[,2]
+combat.parRvC.pval<-combat.par.de.test$p.value[,3]
+
+# combat non-parametric
+
+HCR.ribo.batch.corrected<-batch.removed.combat.nonpar[,1:16]
+
+combat.nonpar.lm.fit<-lmFit(HCR.ribo.batch.corrected,design = model.matrix(~ species.label))
+combat.nonparHvC.effect<-combat.nonpar.lm.fit$coefficient[,2]
+combat.nonparRvC.effect<-combat.nonpar.lm.fit$coefficient[,3]
+
+combat.nonpar.de.test<-eBayes(combat.nonpar.lm.fit)
+
+combat.nonparHvC.pval<-combat.nonpar.de.test$p.value[,2]
+combat.nonparRvC.pval<-combat.nonpar.de.test$p.value[,3]
+
+
+
+```
+
+
+Spearman rank correlation coefficient of test statistics
+```{r}
+HvsC.pval<-c(
+cor(mm4HvC.pval,oriHvC.pval, method = "spearman"),
+cor(mm4HvC.pval,limmaHvC.pval, method = "spearman"),
+cor(mm4HvC.pval,limma.wtHvC.pval, method = "spearman"),
+cor(mm4HvC.pval,combat.parHvC.pval, method = "spearman"),
+cor(mm4HvC.pval,combat.nonparHvC.pval, method = "spearman")
+)
+RvsC.pval<-c(
+cor(mm4RvC.pval,oriRvC.pval, method = "spearman"),
+cor(mm4RvC.pval,limmaRvC.pval, method = "spearman"),
+cor(mm4RvC.pval,limma.wtRvC.pval, method = "spearman"),
+cor(mm4RvC.pval,combat.parRvC.pval, method = "spearman"),
+cor(mm4RvC.pval,combat.nonparRvC.pval, method = "spearman")
+)
+
+pval.cor<-as.data.frame(rbind(HvsC.pval,RvsC.pval))
+names(pval.cor)<-c("original","limma","limma.wt","combat.par","combat.nonpar")
+
+# correlation of DE test p values between mm4 and the data specified in column name 
+pval.cor
+
+HvsC.beta<-c(
+cor(mm4HvC.effect,oriHvC.effect, method = "spearman"),
+cor(mm4HvC.effect,limmaHvC.effect, method = "spearman"),
+cor(mm4HvC.effect,limma.wtHvC.effect, method = "spearman"),
+cor(mm4HvC.effect,combat.parHvC.effect, method = "spearman"),
+cor(mm4HvC.effect,combat.nonparHvC.effect, method = "spearman")
+)
+RvsC.beta<-c(
+cor(mm4RvC.effect,oriRvC.effect, method = "spearman"),
+cor(mm4RvC.effect,limmaRvC.effect, method = "spearman"),
+cor(mm4RvC.effect,limma.wtRvC.effect, method = "spearman"),
+cor(mm4RvC.effect,combat.parRvC.effect, method = "spearman"),
+cor(mm4RvC.effect,combat.nonparRvC.effect, method = "spearman")
+)
+
+beta.cor<-as.data.frame(rbind(HvsC.beta,RvsC.beta))
+names(beta.cor)<-c("original","limma","limma.wt","combat.par","combat.nonpar")
+
+# correlation of DE test beta values between mm4 and the data specified in column name 
+beta.cor
+```
+
+
+scatter plot to visualize effect of batch correction  
+```{r}
+
+#human vs chimp
+# beta
+ggplot(mapping = aes(x=oriHvC.effect,y=mm4HvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("original")+ylab("mm4")+ggtitle("beta HC")
+
+ggplot(mapping = aes(x=limmaHvC.effect,y=mm4HvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma")+ylab("mm4")+ggtitle("beta HC")
+
+ggplot(mapping = aes(x=limma.wtHvC.effect,y=mm4HvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma.wt")+ylab("mm4")+ggtitle("beta HC")
+
+ggplot(mapping = aes(x=combat.parHvC.effect,y=mm4HvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.par")+ylab("mm4")+ggtitle("beta HC")
+
+ggplot(mapping = aes(x=combat.nonparHvC.effect,y=mm4HvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.nonpar")+ylab("mm4")+ggtitle("beta HC")
+
+
+# pvalue
+ggplot(mapping = aes(x=-log10(oriHvC.pval),y=-log10(mm4HvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("original")+ylab("mm4")+ggtitle("-log10 pvalue HC")
+
+ggplot(mapping = aes(x=-log10(limmaHvC.pval),y=-log10(mm4HvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma")+ylab("mm4")+ggtitle("-log10 pvalue HC")
+
+ggplot(mapping = aes(x=-log10(limma.wtHvC.pval),y=-log10(mm4HvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma.wt")+ylab("mm4")+ggtitle("-log10 pvalue HC")
+
+ggplot(mapping = aes(x=-log10(combat.parHvC.pval),y=-log10(mm4HvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.par")+ylab("mm4")+ggtitle("-log10 pvalue HC")
+
+ggplot(mapping = aes(x=-log10(combat.nonparHvC.pval),y=-log10(mm4HvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.nonpar")+ylab("mm4")+ggtitle("-log10 pvalue HC")
+
+
+#Rhesus vs Chimp
+
+# beta
+ggplot(mapping = aes(x=oriRvC.effect,y=mm4RvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("original")+ylab("mm4")+ggtitle("beta RC")
+
+ggplot(mapping = aes(x=limmaRvC.effect,y=mm4RvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma")+ylab("mm4")+ggtitle("beta RC")
+
+ggplot(mapping = aes(x=limma.wtRvC.effect,y=mm4RvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma.wt")+ylab("mm4")+ggtitle("beta RC")
+
+ggplot(mapping = aes(x=combat.parRvC.effect,y=mm4RvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.par")+ylab("mm4")+ggtitle("beta RC")
+
+ggplot(mapping = aes(x=combat.nonparRvC.effect,y=mm4RvC.effect))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.nonpar")+ylab("mm4")+ggtitle("beta RC")
+
+
+# pvalue
+ggplot(mapping = aes(x=-log10(oriRvC.pval),y=-log10(mm4RvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("original")+ylab("mm4")+ggtitle("-log10 pvalue RC")
+
+ggplot(mapping = aes(x=-log10(limmaRvC.pval),y=-log10(mm4RvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma")+ylab("mm4")+ggtitle("-log10 pvalue RC")
+
+ggplot(mapping = aes(x=-log10(limma.wtRvC.pval),y=-log10(mm4RvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("limma.wt")+ylab("mm4")+ggtitle("-log10 pvalue RC")
+
+ggplot(mapping = aes(x=-log10(combat.parRvC.pval),y=-log10(mm4RvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.par")+ylab("mm4")+ggtitle("-log10 pvalue RC")
+
+ggplot(mapping = aes(x=-log10(combat.nonparRvC.pval),y=-log10(mm4RvC.pval)))+geom_point(size=1, alpha=0.3)+geom_abline()+xlab("combat.nonpar")+ylab("mm4")+ggtitle("-log10 pvalue RC")
+
+```
+
+function for roc curve
+```{r}
+roc.curve<-function(pvalue1,pvalue2,cutoff,breaks,color){
+  TPR<-c()
+  FPR<-c()
+  truePositive <- pvalue1 < cutoff
+  trueNegative <- pvalue1 > cutoff
+  threshold<-seq(0,1,1/breaks)
+  
+  for (i in 1:breaks+1){
+    Detected <- pvalue2 < threshold[i]
+    TPR[i] <- length(which(truePositive & Detected))/length(which(truePositive))
+    FPR[i] <- length(which(trueNegative & Detected))/length(which(trueNegative))
+    
+  }
+  
+  plot(FPR,TPR,xlim=c(0,1),ylim=c(0,1),col=color,pch=16,cex=0.4)
+  
+}
+```
+
+comparing between methods
+```{r}
+
+roc.curve(mm4HvC.pval,oriHvC.pval,0.01,1000,"black")
+par(new=TRUE)
+roc.curve(mm4HvC.pval,limmaHvC.pval,0.01,1000,"green")
+par(new=TRUE)
+roc.curve(mm4HvC.pval,limma.wtHvC.pval,0.01,1000,"yellow")
+par(new=TRUE)
+roc.curve(mm4HvC.pval,combat.parHvC.pval,0.01,1000,"blue")
+par(new=TRUE)
+roc.curve(mm4HvC.pval,combat.nonparHvC.pval,0.01,1000,"red")
+legend("bottomright",c("original","limma","limma.wt","combat.par","combat.nonpar"),col=c("black","green","yellow","blue","red"),pch = 16 ,cex = 0.75, pt.cex = 1,box.lwd = 0, ncol = 2)
+
+
+roc.curve(mm4RvC.pval,oriRvC.pval,0.01,1000,"black")
+par(new=TRUE)
+roc.curve(mm4RvC.pval,limmaRvC.pval,0.01,1000,"green")
+par(new=TRUE)
+roc.curve(mm4RvC.pval,limma.wtRvC.pval,0.01,1000,"yellow")
+par(new=TRUE)
+roc.curve(mm4RvC.pval,combat.parRvC.pval,0.01,1000,"blue")
+par(new=TRUE)
+roc.curve(mm4RvC.pval,combat.nonparRvC.pval,0.01,1000,"red")
+legend("bottomright",c("ori","lm","lmwt","combat.p","combat.np"),col=c("black","green","yellow","blue","red"), pch = 16 ,cex = 0.75, pt.cex = 1,box.lwd = 0, ncol = 2)
+```
+
+
+Venn diagram ori, mm4, corrected (combat, nonparametric)
+```{r}
+
+mm4HvC.top500<-mm4HvC.pval<mm4HvC.pval[order(mm4HvC.pval)[501]]
+oriHvC.top500<-oriHvC.pval<oriHvC.pval[order(oriHvC.pval)[501]]
+combat.nonparHvC.top500<-combat.nonparHvC.pval<combat.nonparHvC.pval[order(combat.nonparHvC.pval)[501]]
+HC.pval.top500<-cbind(mm4HvC.top500,oriHvC.top500,combat.nonparHvC.top500)
+colnames(HC.pval.top500)<-c("mm4HC","oriHC","corHC")
+vennDiagram(HC.pval.top500)
+
+mm4RvC.top500<-mm4RvC.pval<mm4RvC.pval[order(mm4RvC.pval)[501]]
+oriRvC.top500<-oriRvC.pval<oriRvC.pval[order(oriRvC.pval)[501]]
+combat.nonparRvC.top500<-combat.nonparRvC.pval<combat.nonparRvC.pval[order(combat.nonparRvC.pval)[501]]
+RC.pval.top500<-cbind(mm4RvC.top500,oriRvC.top500,combat.nonparRvC.top500)
+colnames(RC.pval.top500)<-c("mm4RC","oriRC","corRC")
+vennDiagram(RC.pval.top500)
+
+
+mm4HvC.top1000<-mm4HvC.pval<mm4HvC.pval[order(mm4HvC.pval)[1001]]
+oriHvC.top1000<-oriHvC.pval<oriHvC.pval[order(oriHvC.pval)[1001]]
+combat.nonparHvC.top1000<-combat.nonparHvC.pval<combat.nonparHvC.pval[order(combat.nonparHvC.pval)[1001]]
+HC.pval.top1000<-cbind(mm4HvC.top1000,oriHvC.top1000,combat.nonparHvC.top1000)
+colnames(HC.pval.top1000)<-c("mm4","original","corrected")
+vennDiagram(HC.pval.top1000)
+
+mm4RvC.top1000<-mm4RvC.pval<mm4RvC.pval[order(mm4RvC.pval)[1001]]
+oriRvC.top1000<-oriRvC.pval<oriRvC.pval[order(oriRvC.pval)[1001]]
+combat.nonparRvC.top1000<-combat.nonparRvC.pval<combat.nonparRvC.pval[order(combat.nonparRvC.pval)[1001]]
+RC.pval.top1000<-cbind(mm4RvC.top1000,oriRvC.top1000,combat.nonparRvC.top1000)
+colnames(RC.pval.top1000)<-c("mm4RC","oriRC","corRC")
+vennDiagram(RC.pval.top1000)
+
+```
+
