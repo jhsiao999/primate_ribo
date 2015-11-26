@@ -1,0 +1,72 @@
+---
+title: "sequencing stats and data qc"
+author: "Sidney Wang"
+date: "November 23, 2015"
+output: html_document
+---
+
+Data coverage (sequencing depth)
+```{r}
+library(ggplot2)
+load("../../rdas/mm4plus/mm4.seqStat.RData")
+as.data.frame(t(mm4.seqStat))->mm4.seqStat
+median(mm4.seqStat$`number of reads`)
+
+ggplot(mm4.seqStat,aes(`number of reads`))+geom_histogram(binwidth=2e+6)+geom_vline(xintercept=median(mm4.seqStat$`number of reads`),colour="yellow", size=0.75)+xlab("number of sequecning reads")+ggtitle("Total number of uniquely mapped reads")
+
+```
+
+%Q30
+
+```{r}
+ggplot(mm4.seqStat,aes(`percent pass Q30`))+geom_bar(binwidth=0.01)+xlim(0.8,1)+xlab("proportion")+ggtitle("Proportion of sequencing reads pass Q30")+geom_vline(xintercept=0.95,colour="yellow", size=0.75)
+
+```
+
+
+RPF legnth distribution 
+
+```{r}
+load("../../rdas/mm4plus/mm4.RPF.length.RData")
+# remove na by skipping the last row
+mm4.RPF.length<-mm4.RPF.length[1:21,]
+# compute proportion by footprint length
+mm4.RPF.length.prop<-prop.table(as.matrix(mm4.RPF.length[,-1]),2)
+
+#compute human mean
+apply(mm4.RPF.length.prop[,grep("X",names(as.data.frame(mm4.RPF.length.prop)))],1,mean)->H.mean
+apply(mm4.RPF.length.prop[,grep("X",names(as.data.frame(mm4.RPF.length.prop)))],1,sd)/2->H.se
+as.data.frame(cbind(mm4.RPF.length$length,H.mean,H.se))->H.data
+names(H.data)<-c("length","proportion","se")
+H.data$species<-rep("human",21)
+
+# compute chimp mean
+apply(mm4.RPF.length.prop[,grep("C",names(as.data.frame(mm4.RPF.length.prop)))],1,mean)->C.mean
+apply(mm4.RPF.length.prop[,grep("C",names(as.data.frame(mm4.RPF.length.prop)))],1,sd)/2->C.se
+as.data.frame(cbind(mm4.RPF.length$length,C.mean,C.se))->C.data
+names(C.data)<-c("length","proportion","se")
+C.data$species<-rep("chimpanzee",21)
+
+# compute rhesus
+
+apply(mm4.RPF.length.prop[,grep("R",names(as.data.frame(mm4.RPF.length.prop)))],1,mean)->R.mean
+apply(mm4.RPF.length.prop[,grep("R",names(as.data.frame(mm4.RPF.length.prop)))],1,sd)/2->R.se
+as.data.frame(cbind(mm4.RPF.length$length,R.mean,R.se))->R.data
+names(R.data)<-c("length","proportion","se")
+R.data$species<-rep("rhesus",21)
+
+length.data<-rbind(H.data,C.data,R.data)
+
+
+# ggplot to visualize length distribution by species. Use scale_fill_manual to change default color to the color of choice by manually mapping the species name to color name. Use element_blank() to remove title for each subplot (strip)
+
+ggplot(length.data,aes(x=length,y=proportion, fill=species))+geom_bar(stat="identity")+geom_errorbar(aes(ymin=proportion-se, ymax=proportion+se), width=.3)+facet_grid(species ~ .)+scale_fill_manual(values = c("human"="black","chimpanzee"="sky blue","rhesus"="dark orange"))+ggtitle(label="RPF length distribution")+theme(strip.background = element_blank(), strip.text = element_blank())+xlab("length(nt)")
+
+
+```
+
+codon periodicity
+```{r}
+
+```
+

@@ -9,9 +9,9 @@ Additional data from mm2 and mm7 were processed and included in "HCR.plus.ribo" 
 
 load data
 ```{r}
-load("../rdas/HRC.plus.ribo.rda")
-load("../rdas/mm4.ribo.rda")
-load("../rdas/HCR.ortho.geneLength.rda")
+load("../../rdas/mm4plus/HRC.plus.ribo.rda")
+load("../../rdas/mm4plus/mm4.ribo.rda")
+load("../../rdas/mm4plus//HCR.ortho.geneLength.rda")
 ```
 
 compute RPKM
